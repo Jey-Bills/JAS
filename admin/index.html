@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>Admin Dashboard — Jey's Academic Studio</title>
-<meta content="Protected, read-only enquiry dashboard for Jey's Academic Studio." name="description"/>
+<meta content="Protected enquiry dashboard for Jey's Academic Studio." name="description"/>
 <meta content="noindex, nofollow" name="robots"/>
 <meta content="#0f1e3d" name="theme-color"/>
 <link href="../assets/favicon.svg" rel="icon" type="image/svg+xml"/>
@@ -105,7 +105,10 @@
                 <p class="eyebrow">Find a record</p>
                 <h2 id="filter-heading">Filters &amp; search</h2>
               </div>
-              <button class="btn btn--light admin-clear-filters" id="clear-filters" type="button">Clear filters</button>
+              <div class="admin-filter-actions">
+                <button class="btn btn--navy admin-export-btn" disabled="" id="export-csv" type="button">Export CSV</button>
+                <button class="btn btn--light admin-clear-filters" id="clear-filters" type="button">Clear filters</button>
+              </div>
             </div>
             <div class="admin-filter-grid">
               <div class="admin-filter-field">
@@ -186,12 +189,35 @@
               <button class="admin-inline-button" id="clear-filters-empty" type="button">Clear filters</button>
             </div>
 
+            <div class="admin-bulk-bar" hidden="" id="bulk-actions-bar">
+              <span aria-live="polite" class="admin-bulk-count" id="bulk-selected-count">0 selected</span>
+              <div class="admin-bulk-controls">
+                <label class="visually-hidden" for="bulk-status-select">Mark selected enquiries as</label>
+                <select id="bulk-status-select" name="bulk-status">
+                  <option value="">Mark as…</option>
+                  <option value="new">New</option>
+                  <option value="quoted">Quoted</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="paid">Paid</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <button class="btn btn--navy admin-bulk-apply" disabled="" id="bulk-apply" type="button">Apply</button>
+                <button class="btn btn--light admin-bulk-clear" id="bulk-clear" type="button">Clear selection</button>
+              </div>
+            </div>
+            <div class="admin-mobile-select-bar" hidden="" id="mobile-select-bar">
+              <button class="admin-inline-button" id="select-all-mobile" type="button">Select all</button>
+              <span aria-live="polite" class="admin-mobile-select-count" id="mobile-selected-count"></span>
+            </div>
+
             <div class="admin-enquiry-lists" hidden="" id="enquiry-lists">
               <div class="admin-table-wrap">
                 <table class="admin-enquiry-table">
                   <caption class="visually-hidden">Enquiries. Select a sortable column heading to change the sort order.</caption>
                   <thead>
                     <tr>
+                      <th class="admin-checkbox-col" scope="col"><input aria-label="Select all filtered enquiries" id="select-all-checkbox" type="checkbox"/><span class="visually-hidden">Select all</span></th>
                       <th aria-sort="descending" scope="col"><button data-sort="created_at" type="button">Date <span aria-hidden="true" data-sort-indicator="">↓</span></button></th>
                       <th aria-sort="none" scope="col"><button data-sort="name" type="button">Name <span aria-hidden="true" data-sort-indicator="">↕</span></button></th>
                       <th aria-sort="none" scope="col"><button data-sort="level" type="button">Level <span aria-hidden="true" data-sort-indicator="">↕</span></button></th>
@@ -226,6 +252,23 @@
         <span class="admin-status-badge admin-status-unknown" id="detail-status">Unknown</span>
       </div>
       <div class="admin-detail-content">
+        <section aria-labelledby="detail-status-heading">
+          <h3 id="detail-status-heading">Status</h3>
+          <div class="admin-detail-status-row">
+            <div class="admin-filter-field">
+              <label for="detail-status-select">Change status</label>
+              <select id="detail-status-select" name="detail-status">
+                <option value="new">New</option>
+                <option value="quoted">Quoted</option>
+                <option value="in_progress">In Progress</option>
+                <option value="delivered">Delivered</option>
+                <option value="paid">Paid</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <span aria-live="polite" class="admin-save-state" id="detail-status-state"></span>
+          </div>
+        </section>
         <section aria-labelledby="detail-fields-heading">
           <h3 id="detail-fields-heading">Submitted details</h3>
           <dl class="admin-detail-fields" id="detail-fields"></dl>
@@ -233,6 +276,16 @@
         <section aria-labelledby="detail-description-heading">
           <h3 id="detail-description-heading">Description</h3>
           <p class="admin-detail-long-text" id="detail-description"></p>
+        </section>
+        <section aria-labelledby="detail-notes-heading">
+          <h3 id="detail-notes-heading">Internal notes</h3>
+          <label class="visually-hidden" for="detail-notes">Internal notes</label>
+          <textarea class="admin-notes-textarea" id="detail-notes" maxlength="6000" name="detail-notes" placeholder="Add internal notes — only visible to you." rows="5"></textarea>
+          <div class="admin-notes-actions">
+            <button class="btn btn--navy admin-save-notes-btn" id="save-notes" type="button">Save notes</button>
+            <span aria-live="polite" class="admin-save-state" id="notes-save-state"></span>
+          </div>
+          <p class="admin-notes-hint">Notes are internal only and are never shown to clients. Saving an empty note asks for confirmation first.</p>
         </section>
         <section aria-labelledby="detail-attachments-heading">
           <h3 id="detail-attachments-heading">Attached files</h3>
@@ -244,6 +297,19 @@
         </div>
       </div>
     </dialog>
+
+    <dialog aria-labelledby="confirm-heading" aria-modal="true" class="admin-confirm-dialog" id="admin-confirm-dialog">
+      <div class="admin-confirm-content">
+        <h2 id="confirm-heading">Please confirm</h2>
+        <p id="confirm-message"></p>
+        <div class="admin-confirm-actions">
+          <button class="btn btn--light" id="confirm-cancel" type="button">Cancel</button>
+          <button class="btn btn--navy" id="confirm-accept" type="button">Confirm</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div aria-atomic="false" aria-live="polite" class="admin-toast-container" id="admin-toast-container"></div>
   </div>
 </main>
 
