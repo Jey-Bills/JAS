@@ -153,7 +153,7 @@ Beginning with Phase 8, the quote request form on `contact.html` submits briefs 
 
 ### Required accounts
 
-- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (configured in `vercel.json` with a 10-second `maxDuration`).
+- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (all functions use a 30-second `maxDuration`, configured in `vercel.json` via the single `api/*.js` glob to accommodate file uploads in `/api/submit`).
 - **Supabase** — PostgreSQL database storing `enquiries` and enforcing IP-based submission rate limits via `rate_limits` and `consume_enquiry_rate_limit`.
 - **Resend** — sends transactional email notifications when a new enquiry arrives.
 
@@ -172,6 +172,38 @@ In the Supabase Dashboard, open **SQL Editor → New query** and run the Phase 8
 1. The `public.enquiries` table (`id`, `created_at`, `name`, `email`, `phone`, `level`, `service`, `title`, `description`, `length`, `deadline`, `existing_draft`, `preferred_contact`, `notes`, `status`, `user_agent`, `ip_hash`).
 2. The `public.rate_limits` table and `public.consume_enquiry_rate_limit(p_ip_hash text)` function returning `(allowed boolean, retry_after integer)`.
 3. Permissions revoked from `anon` and `authenticated` and granted only to `service_role`.
+
+### File uploads
+
+Phase 9 supports optional attachments through `/api/submit` using multipart/form-data. JSON-only enquiries still work. File bytes pass through the server; the browser never uploads directly to Supabase. No new dependencies or environment variables are needed. Node's built-in Web Request/FormData parser requires Node 20+ (use a currently supported Vercel Node runtime, e.g. Node 22).
+
+**Before merging**, run [`supabase/phase9-file-uploads.sql`](supabase/phase9-file-uploads.sql) in Supabase SQL Editor:
+
+```sql
+ALTER TABLE public.enquiries
+  ADD COLUMN IF NOT EXISTS file_paths jsonb DEFAULT NULL;
+```
+
+- **Bucket:** `enquiry-files`, private (**Public must remain OFF**). Do not add public/anon/authenticated insert or read policies. Only the backend uses the secret/service-role key. Confirm existing Storage policies do not grant these roles access to this bucket. RLS/table permissions from Phase 8 are unchanged.
+- **Limits:** max 3 files; original per-file ceiling 5 MB, but the **combined total is limited to 4,000,000 bytes (4 MB)**, as approved by the owner. The effective single-file limit is therefore also 4 MB. This leaves room below Vercel's 4.5 MB request-body cap. The complete request is bounded to 4,064,000 bytes. Larger requests may be rejected by Vercel before our function runs; use WhatsApp/email instead.
+- **Types:** PDF, DOC, DOCX, PPT, PPTX, JPG/JPEG, PNG, ZIP. Both the filename extension and declared MIME type must match on the server (ZIP accepts `application/zip` and `application/x-zip-compressed`). Empty files are rejected. This is not virus scanning or verification of the actual binary format; only open trusted files and do not upload patient-identifying information. Browsers that supply an empty/generic MIME type will be rejected; use the fallback instead.
+- **Paths:** `enquiries/<server-generated-enquiry-UUID>/<server-generated-file-UUID>-<sanitized-name>`. Original filenames are sanitized and length-limited. Metadata in `enquiries.file_paths` is an array of `{path, name, size, type}`; no file bytes or signed URLs are stored in the table.
+- **Downloads:** owner notification emails contain signed links expiring after 604,800 seconds (7 days). The bucket is never made public. Anyone holding a signed URL can use it until expiry; do not forward links. Supabase's owner dashboard can download files after email links expire. No admin download UI is included in this phase.
+- **Failure handling:** validation returns `400` before any database/storage writes. The existing honeypot and rate limit still apply. The enquiry is saved before upload attempts. Failed uploads/metadata saves return `200` with a warning displayed in the confirmation panel and owner email, and fallbacks remain available. Metadata failures trigger best-effort file removal. Signing failures are identified in the owner email; files stay recorded privately. External Supabase calls have short timeouts and a shared budget; Resend also has a timeout. There is no automatic retry that could duplicate a saved enquiry.
+- **Retention:** keep attachments only as long as needed for agreed work; delete on request. No automatic retention deletion job is implemented.
+
+**View/download/delete:** Supabase Dashboard → **Storage → enquiry-files → enquiries → [full enquiry UUID]**. Match that UUID to the row in **Table Editor → enquiries**. Select an object to download or delete it using dashboard actions. After deleting, remove its metadata entry from `file_paths` (or set the column to `NULL` when deleting all attachments). Existing signed links stop working when the corresponding object is deleted. If a request times out or cleanup fails, check the enquiry's folder for unreferenced files and remove them manually. If a timed-out metadata update actually completed before cleanup, clear any stale metadata pointing to deleted objects.
+
+**Phase 9 live checks** (after SQL + merge + successful Vercel deployment):
+
+1. Open `https://jas-olive.vercel.app/contact.html`. Attach a small PDF and PNG, complete the required fields, send. Expect selected filenames/sizes and removal controls, **Uploading files…**, then a confirmation with a reference.
+2. In Supabase, verify the row's `file_paths` metadata and matching private Storage objects. In the owner inbox / Resend Emails, open each signed download link. Confirm expiry is configured at 7 days and the email still has the client's Reply-To.
+3. Remove a selected file and confirm it is absent from the sent request/metadata. Try four files, a `.txt` file, an empty file, and files totalling over 4 MB: expect an immediate error and no request until corrected. The WhatsApp fallback remains usable.
+4. Submit without files. Browser DevTools → Network should show JSON, HTTP `200`, and the existing success flow; Supabase `file_paths` should be `NULL`.
+5. Confirm **Public OFF** and no public access policies. An unsigned `/storage/v1/object/public/enquiry-files/<path>` URL must not download the file. Inspect DevTools Network: uploads only go to `/api/submit`, and no service-role key appears in browser code or requests.
+6. Open `https://jas-olive.vercel.app/privacy.html` and verify the storage/retention note. If submission fails, inspect `/api/submit`'s status/response in DevTools and Vercel Function logs. For `500`, check the SQL migration, env var names, table grants, and bucket ID. For `400`, check fields, extension/MIME and size. For `429`, wait for the rate-limit period; do not repeatedly retry. For a saved-enquiry attachment warning, keep the reference and send missing files via WhatsApp/email instead of resubmitting the enquiry.
+
+**Maintainer regression tests:** `npm ci && node --test tests/*.test.js`. Tests use built-in Node tools and mocked Supabase/Resend responses; they do not validate actual production credentials, deployed Storage policies, or email delivery.
 
 ### Test flow
 
@@ -197,10 +229,9 @@ See **TESTING.md** for the owner checklist and the build-verification record. Re
 
 ## Known limits
 
-- No backend, database, user accounts, admin panel or analytics.
-- The form prepares a message only. It does not submit data to a server.
-- After preparing the brief, the visitor must choose WhatsApp or email and then send it in their app. Selecting Call records a callback preference; it does not place a call automatically.
-- No file uploads. Files are shared by WhatsApp or email after the initial quote is confirmed.
+- No user accounts, admin panel, payment processing or analytics yet.
+- Enquiries and optional attachments submit to the backend; WhatsApp/email handoffs are alternatives and require sending in the chosen app. Selecting Call records a callback preference; it does not place a call automatically.
+- Attachments are capped at 3 files and 4 MB combined; larger files must be shared via WhatsApp/email. No malware scanning or automatic retention cleanup is provided.
 - No payment processing. Payment terms are agreed in the quote.
 - Long mailto messages may exceed an email app's limits. Use WhatsApp or direct email if that happens.
 - Google Fonts and the homepage photo are remote resources. System-font and navy-background fallbacks remain usable if those resources fail.

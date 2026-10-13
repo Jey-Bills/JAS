@@ -329,3 +329,14 @@ fieldset.has-error { padding: 10px; border: 1px solid #b42318; border-radius: 7p
   .page-hero .hero-price-note { color: var(--navy); background: var(--cream-2); }
   .hero-price-note strong { color: var(--navy); }
 }
+
+/* Optional enquiry attachments; reuse the existing form and brand tokens. */
+.file-field input[type='file'] { padding: 14px; border-style: dashed; }
+.file-field input[type='file']::file-selector-button { background: var(--navy); color: var(--white); border: 0; border-radius: 5px; padding: 9px 12px; margin-right: 12px; cursor: pointer; }
+.file-field.has-error input[type='file'] { border-color: #b42318; background: #fef3f2; }
+.selected-files { list-style: none; padding: 0; margin: 12px 0 0; }
+.selected-files li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+.selected-files li span { min-width: 0; overflow-wrap: anywhere; }
+.remove-file { flex-shrink: 0; background: none; border: 0; padding: 10px 4px; color: var(--navy); text-decoration: underline; text-decoration-color: var(--gold); cursor: pointer; font: inherit; }
+.remove-file:disabled { opacity: 0.5; cursor: wait; }
+.file-field .field-help a { color: var(--navy); text-decoration: underline; }

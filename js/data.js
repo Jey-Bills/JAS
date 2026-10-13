@@ -176,11 +176,66 @@
   const hideAlerts = () => {
     if (errorPanel) errorPanel.hidden = true;
   };
+  const fileInput = document.getElementById('files');
+  const fileList = document.getElementById('selected-files');
+  const fileError = document.getElementById('files-error');
+  const allowedExtensions = new Set(['pdf', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png', 'zip']);
+  let selectedFiles = []; // Memory only; never persist files or enquiries in browser storage.
+  const validateFiles = () => {
+    let message = '';
+    if (selectedFiles.length > 3) message = 'Please remove files until at most 3 remain.';
+    else if (selectedFiles.some(file => file.size > 5_000_000)) message = 'Each file must be 5MB or smaller. Use WhatsApp for larger files.';
+    else if (selectedFiles.some(file => !file.name.includes('.') || !allowedExtensions.has(file.name.split('.').pop().toLowerCase()))) {
+      message = 'Only PDF, DOC, DOCX, PPT, PPTX, JPG, JPEG, PNG or ZIP files are allowed.';
+    } else if (selectedFiles.some(file => file.size === 0)) message = 'Empty files cannot be uploaded.';
+    else if (selectedFiles.reduce((total, file) => total + file.size, 0) > 4_000_000) {
+      message = 'Combined file size must not exceed 4MB. Remove files or use WhatsApp for larger files.';
+    }
+    fileError.textContent = message;
+    fileError.hidden = !message;
+    fileInput.closest('.field').classList.toggle('has-error', !!message);
+    if (message) {
+      fileInput.setAttribute('aria-invalid', 'true');
+      errorFallbackLinks.hidden = false;
+    } else fileInput.removeAttribute('aria-invalid');
+    return !message;
+  };
+  const renderFiles = () => {
+    fileList.replaceChildren();
+    selectedFiles.forEach((file, index) => {
+      const item = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = file.name + ' — ' + (file.size / 1_000_000).toFixed(2) + ' MB';
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove-file';
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', 'Remove ' + file.name);
+      remove.addEventListener('click', () => {
+        if (submitBtn.disabled) return;
+        selectedFiles.splice(index, 1);
+        renderFiles();
+        validateFiles();
+        fileInput.focus();
+      });
+      item.append(label, remove);
+      fileList.append(item);
+    });
+  };
+  fileInput.addEventListener('change', () => {
+    selectedFiles.push(...Array.from(fileInput.files));
+    // The array is the source of truth; clearing also allows reselecting a removed file.
+    fileInput.value = '';
+    renderFiles();
+    validateFiles();
+  });
   form.addEventListener('input', hideAlerts);
   form.addEventListener('change', hideAlerts);
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if (submitBtn.disabled) return;
     hideAlerts();
+    if (!validateFiles()) { fileInput.focus(); return; }
     const phone = fieldValue('phone');
     const phoneDigits = phone.replace(/\D/g, '');
     const date = fieldValue('deadline');
@@ -250,18 +305,27 @@
     });
 
     submitBtn.disabled = true;
-    if (submitText) submitText.textContent = 'Sending…';
-    else submitBtn.textContent = 'Sending…';
+    fileInput.disabled = true;
+    fileList.querySelectorAll('button').forEach(button => { button.disabled = true; });
+    const loadingText = selectedFiles.length ? 'Uploading files…' : 'Sending…';
+    if (submitText) submitText.textContent = loadingText;
+    else submitBtn.textContent = loadingText;
 
     try {
-      const response = await fetch('/api/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const options = { method: 'POST' };
+      if (selectedFiles.length) {
+        const multipart = new FormData();
+        Object.entries(payload).forEach(([key, value]) => multipart.append(key, String(value)));
+        selectedFiles.forEach(file => multipart.append('files', file, file.name));
+        options.body = multipart; // Browser sets Content-Type including the boundary.
+      } else {
+        options.headers = { 'Content-Type': 'application/json' };
+        options.body = JSON.stringify(payload);
+      }
+      const response = await fetch('/api/submit', options);
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Request failed');
+        throw new Error(result.errors?.files || result.error || 'Request failed');
       }
 
       const shortRef = String(result.id || '').slice(0, 8);
@@ -274,14 +338,22 @@
           ' typically within a few hours. Reference: ' +
           shortRef +
           '.';
+        if (Array.isArray(result.warnings) && result.warnings.length) {
+          panelMessage.textContent += ' ' + result.warnings.join(' ');
+        }
       }
+      selectedFiles = [];
       form.hidden = true;
       if (errorPanel) errorPanel.hidden = true;
       panel.hidden = false;
       panel.focus();
       panel.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-    } catch {
+    } catch (error) {
       submitBtn.disabled = false;
+      fileInput.disabled = false;
+      fileList.querySelectorAll('button').forEach(button => { button.disabled = false; });
+      document.getElementById('form-error-text').textContent =
+        (error.message === 'Failed to fetch' ? 'Connection failed. Please try again.' : error.message) + ' You can also use WhatsApp or email below.';
       if (submitText) submitText.textContent = 'Send brief';
       else submitBtn.textContent = 'Send brief';
       if (errorFallbackLinks) errorFallbackLinks.hidden = false;
