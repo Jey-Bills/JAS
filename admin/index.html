@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Admin Dashboard — Jey's Academic Studio</title>
+<meta content="Protected admin dashboard for Jey's Academic Studio." name="description"/>
+<meta content="noindex, nofollow" name="robots"/>
+<meta content="#0f1e3d" name="theme-color"/>
+<link href="../assets/favicon.svg" rel="icon" type="image/svg+xml"/>
+<link href="../assets/favicon.svg" rel="apple-touch-icon"/>
+<link href="../css/styles.css" rel="stylesheet"/>
+<link href="../css/admin.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script defer="" src="../js/data.js"></script>
+<script src="../js/admin-auth.js" type="module"></script>
+</head>
+<body id="admin-dashboard-page">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><div class="container header-inner">
+<div class="admin-header-bar">
+  <a aria-label="Jey's Academic Studio — homepage" class="brand" href="../index.html"><span aria-hidden="true" class="brand-mark">JAS</span><span class="brand-name">Jey's Academic Studio</span></a>
+  <span class="admin-badge">Admin</span>
+</div>
+<div class="admin-header-actions">
+  <a class="btn btn--outline admin-logout-btn" href="../index.html">Public Site</a>
+  <button class="btn btn--gold admin-logout-btn" data-admin-logout="" id="admin-logout-btn" type="button">Logout</button>
+</div>
+</div></header>
+
+<main id="main" tabindex="-1">
+  <div id="admin-auth-checking">
+    <section class="section">
+      <div class="container">
+        <div aria-live="polite" class="admin-checking-card" role="status">
+          <p style="margin: 0; color: var(--slate);">Checking authentication session…</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div hidden="" id="admin-dashboard-content">
+    <section class="admin-hero">
+      <div class="container">
+        <p class="eyebrow" style="color: var(--gold-2); margin-bottom: 12px;">Studio Administration</p>
+        <h1>Admin</h1>
+        <p class="admin-welcome" id="admin-welcome">Signed in as <strong id="admin-user-email"></strong></p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <article class="admin-placeholder-card">
+          <h2>Enquiry Management</h2>
+          <p>Dashboard coming in Phase 11.</p>
+          <p class="small-note">Your authentication session is active. Use the Logout button in the header when finished.</p>
+        </article>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer"><div class="container"><div class="footer-grid">
+<div><p class="footer-brand">JAS <span aria-hidden="true">·</span> Jey's Academic Studio</p><p class="footer-description">Clear guidance. Better academic work. Support for students and clients in Ghana.</p><div class="footer-status"><span aria-hidden="true" class="status-dot"></span>Available <span data-contact-text="hours">24/7</span></div></div>
+<div><p class="footer-heading">Pages</p><ul class="footer-links"><li><a href="../services.html">Services</a></li><li><a href="../pricing.html">Pricing</a></li><li><a href="../how-it-works.html">How It Works</a></li><li><a href="../faq.html">FAQ</a></li><li><a href="../privacy.html">Privacy</a></li></ul></div>
+<div><p class="footer-heading">Get in touch</p><ul class="footer-links">
+<li>Call: <a data-call-index="0" data-contact-link="call" href="tel:0534423173"><span data-call-index="0" data-contact-text="call">0534423173</span></a></li>
+<li>Call: <a data-call-index="1" data-contact-link="call" href="tel:0205243731"><span data-call-index="1" data-contact-text="call">0205243731</span></a></li>
+<li><a data-contact-link="whatsapp" href="https://wa.me/233534423173" rel="noopener noreferrer" target="_blank">WhatsApp: <span data-contact-text="call">0534423173</span></a></li>
+<li><a data-contact-link="email" href="mailto:jessenyarko192@gmail.com"><span data-contact-text="email">jessenyarko192@gmail.com</span></a></li>
+</ul></div></div><div class="footer-bottom"><span>© <span data-year="">2026</span> Jey's Academic Studio. All rights reserved.</span></div></div></footer>
+</body>
+</html>
