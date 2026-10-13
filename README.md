@@ -163,6 +163,7 @@ Configure the following environment variables in your Vercel project settings (a
 
 - `SUPABASE_URL` — your Supabase project URL (`https://<project-ref>.supabase.co`).
 - `SUPABASE_SECRET_KEY` — your Supabase service role / secret key (used server-side only in `/api/submit`; falls back to `SUPABASE_SERVICE_ROLE_KEY`). Never expose this key in browser code.
+- `SUPABASE_ANON_KEY` — your Supabase public anon/publishable key (used browser-side for `/admin` authentication with RLS enabled; falls back to `SUPABASE_PUBLISHABLE_KEY`).
 - `RESEND_API_KEY` — your Resend API key (`re_...`).
 
 ### Database setup (Supabase SQL)
@@ -204,6 +205,14 @@ ALTER TABLE public.enquiries
 6. Open `https://jas-olive.vercel.app/privacy.html` and verify the storage/retention note. If submission fails, inspect `/api/submit`'s status/response in DevTools and Vercel Function logs. For `500`, check the SQL migration, env var names, table grants, and bucket ID. For `400`, check fields, extension/MIME and size. For `429`, wait for the rate-limit period; do not repeatedly retry. For a saved-enquiry attachment warning, keep the reference and send missing files via WhatsApp/email instead of resubmitting the enquiry.
 
 **Maintainer regression tests:** `npm ci && node --test tests/*.test.js`. Tests use built-in Node tools and mocked Supabase/Resend responses; they do not validate actual production credentials, deployed Storage policies, or email delivery.
+
+### Admin authentication (Phase 10)
+
+Phase 10 adds a protected studio-owner sign-in flow at `/admin/login.html` and a protected dashboard shell at `/admin/` (`/admin/index.html`) using Supabase Auth with the public anon/publishable key.
+
+- **SQL setup:** Run [`supabase/phase10-admin-auth.sql`](supabase/phase10-admin-auth.sql) in the Supabase SQL Editor to enable Row Level Security (RLS) on `public.enquiries` and `public.rate_limits`, grant `authenticated` `SELECT` and column-restricted `UPDATE (status, notes, file_paths)` on `public.enquiries` (and `SELECT` on `public.rate_limits`), and keep `anon` blocked while preserving `service_role` access for `/api/submit`.
+- **Client configuration:** `js/supabase-client.js` reads `window.JAS_CONFIG` (`js/config.js`) or fetches `/api/config`, which exposes only `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) — never the secret/service-role key.
+- **Rate limiting:** `js/admin-auth.js` enforces a 15-minute client-side lockout in `localStorage` after 5 consecutive failed sign-in attempts within 15 minutes.
 
 ### Test flow
 
