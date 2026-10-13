@@ -471,3 +471,234 @@
 @media (prefers-reduced-motion: reduce) {
   .admin-skeleton { animation: none; }
 }
+
+/* Phase 12: admin actions — status/notes editing, CSV export, bulk actions */
+
+/* Filter-bar actions (Export CSV + Clear filters) */
+.admin-filter-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.admin-export-btn { min-height: 42px; padding: 8px 14px; font-size: 0.82rem; white-space: nowrap; }
+.admin-export-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Selection checkboxes */
+.admin-checkbox-col { width: 44px; }
+.admin-checkbox-cell { width: 44px; }
+.admin-row-checkbox {
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  accent-color: var(--navy);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.admin-row-checkbox:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* Inline status dropdown (list rows + mobile cards) */
+.admin-inline-status {
+  max-width: 100%;
+  min-height: 34px;
+  padding: 5px 26px 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.admin-inline-status:disabled { opacity: 0.6; cursor: progress; }
+.admin-status-select-new { color: #805d00; background-color: #fff5d6; border-color: #f0d787; }
+.admin-status-select-quoted { color: #1e40af; background-color: #dbeafe; border-color: #bfdbfe; }
+.admin-status-select-in_progress { color: #6b21a8; background-color: #f3e8ff; border-color: #e9d5ff; }
+.admin-status-select-delivered { color: #0f766e; background-color: #ccfbf1; border-color: #99f6e4; }
+.admin-status-select-paid { color: #166534; background-color: #dcfce7; border-color: #bbf7d0; }
+.admin-status-select-archived,
+.admin-status-select-unknown { color: #475569; background-color: #e2e8f0; border-color: #cbd5e1; }
+.admin-status-cell { min-width: 132px; }
+
+/* Subtle per-row loading state while a status write is in flight */
+.admin-enquiry-table tbody tr.admin-row--updating td,
+.admin-enquiry-card.admin-card--updating { opacity: 0.55; }
+.admin-enquiry-table tbody tr.admin-row--updating,
+.admin-enquiry-card.admin-card--updating { cursor: progress; }
+
+/* Mobile enquiry cards (Phase 12: card is now an article with controls) */
+.admin-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-card-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--slate);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-card-controls { display: flex; }
+.admin-card-controls .admin-inline-status { flex: 1 1 auto; min-height: 40px; font-size: 0.8rem; }
+
+/* Mobile "Select all" bar (only shown on small screens, see media query) */
+.admin-mobile-select-bar { display: none; }
+
+/* Bulk actions bar — sticky so it stays reachable while scrolling.
+   Empty selection state: hidden attribute keeps it out of view entirely. */
+.admin-bulk-bar {
+  position: sticky;
+  top: 84px;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--navy-2);
+  border-radius: 11px;
+  background: var(--navy);
+  color: var(--white);
+  box-shadow: 0 12px 26px rgba(7, 15, 32, 0.22);
+}
+.admin-bulk-count { font-size: 0.88rem; font-weight: 700; white-space: nowrap; }
+.admin-bulk-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.admin-bulk-controls select {
+  min-height: 41px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 7px;
+  background: var(--white);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.admin-bulk-controls select:disabled { opacity: 0.6; cursor: not-allowed; }
+.admin-bulk-apply,
+.admin-bulk-clear { min-height: 41px; padding: 8px 13px; font-size: 0.83rem; white-space: nowrap; }
+.admin-bulk-apply { background: var(--gold-2); border-color: var(--gold-2); color: var(--navy); }
+.admin-bulk-apply:disabled,
+.admin-bulk-clear:disabled,
+.admin-save-notes-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Detail panel: status dropdown + internal notes editor */
+.admin-detail-status-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+.admin-detail-status-row .admin-filter-field { flex: 1 1 220px; }
+.admin-save-state { min-height: 1.4em; padding-bottom: 10px; color: var(--slate-2); font-size: 0.8rem; }
+.admin-notes-textarea {
+  width: 100%;
+  min-height: 118px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--white);
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+.admin-notes-textarea:disabled { opacity: 0.65; cursor: progress; background: var(--cream-2); }
+.admin-notes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 10px; }
+.admin-save-notes-btn { min-height: 43px; padding: 8px 16px; font-size: 0.86rem; }
+.admin-notes-actions .admin-save-state { padding-bottom: 0; }
+.admin-notes-hint { margin: 9px 0 0; color: var(--slate-2); font-size: 0.76rem; line-height: 1.5; }
+
+/* Toast notifications (top-right desktop, top-center mobile) */
+.admin-toast-container {
+  position: fixed;
+  top: 96px;
+  right: 16px;
+  z-index: 1200;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.admin-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid transparent;
+  border-left: 4px solid var(--navy);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--navy);
+  box-shadow: 0 16px 34px rgba(7, 15, 32, 0.2);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  animation: admin-toast-in 0.22s ease-out;
+}
+.admin-toast--success { border-color: #bbf7d0; border-left-color: #16a34a; background: #f0fdf4; color: #14532d; }
+.admin-toast--error { border-color: #fecaca; border-left-color: #dc2626; background: #fef2f2; color: #7f1d1d; }
+.admin-toast--info { border-color: #bfdbfe; border-left-color: var(--navy); background: #eff6ff; color: var(--navy); }
+.admin-toast--leaving { opacity: 0; transform: translateY(-4px); transition: opacity 0.2s ease, transform 0.2s ease; }
+.admin-toast-close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0 0 2px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.admin-toast-close:hover { background: rgba(15, 30, 61, 0.08); }
+@keyframes admin-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Confirmation modal */
+.admin-confirm-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-width: none;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--gold-2);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--navy);
+  box-shadow: 0 24px 54px rgba(7, 15, 32, 0.3);
+}
+.admin-confirm-dialog::backdrop { background: rgba(8, 16, 33, 0.62); }
+.admin-confirm-content { padding: 24px 22px 20px; }
+.admin-confirm-content h2 { margin: 0 0 10px; font-size: 1.2rem; }
+.admin-confirm-content p { margin: 0 0 18px; color: var(--slate); font-size: 0.92rem; line-height: 1.6; overflow-wrap: anywhere; }
+.admin-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.admin-confirm-actions .btn { min-height: 43px; padding: 8px 16px; font-size: 0.87rem; }
+
+@media (max-width: 720px) {
+  .admin-mobile-select-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .admin-mobile-select-count { color: var(--slate-2); font-size: 0.8rem; }
+  .admin-bulk-bar { top: 118px; }
+  .admin-toast-container { top: 84px; right: 50%; transform: translateX(50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-toast { animation: none; }
+  .admin-toast--leaving { transition: none; }
+}

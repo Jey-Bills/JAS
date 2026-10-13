@@ -222,6 +222,14 @@ Private attachments are downloaded through `/api/admin/signed-url` (source file:
 
 **Phase 11 live checks** (after deployment): open `https://jas-olive.vercel.app/admin/login.html`, sign in as the studio owner, and confirm `/admin/` shows enquiry counts and rows. Search/filter a known record, open it, and confirm its fields and attachments. Use Download and confirm the file arrives; in DevTools Network, the signed-url request should be authenticated and the returned link should not appear in console logs. At a phone width, confirm cards and a full-screen detail view. Test the no-data state only when the table is empty. A failed enquiry read displays an RLS/connection message with retry and logout controls.
 
+### Admin actions (Phase 12)
+
+The dashboard is no longer read-only. The owner can change an enquiry's status (`new` → `quoted` → `in_progress` → `delivered` → `paid` → `archived`) from a dropdown in the detail panel or inline on each table row / mobile card, edit internal notes in the detail panel (saved via the Save button or on blur, with a “Saving…”/“Saved” state), export the **currently filtered/searched** list as `jas-enquiries-YYYY-MM-DD.csv` (UTF-8 BOM, escaped fields, client-side only), and bulk-update the status of checkbox-selected enquiries from the bulk actions bar (desktop “select all” covers all filtered enquiries; mobile has a Select all button).
+
+All status/notes writes go directly from the browser to Supabase with the anon key and the owner's session; the Phase 10 RLS policies and column-restricted `UPDATE (status, notes, file_paths)` grant enforce authorisation. No new endpoint, SQL, environment variable or dependency was added, and `/api/admin/signed-url` is unchanged. Updates are optimistic: the UI changes immediately, shows a subtle loading state on the affected row, and rolls back with an error toast if Supabase rejects the write. Success/error feedback uses toast notifications; bulk status changes and clearing notes to empty ask for confirmation first (single status changes do not).
+
+**Phase 12 live checks** (after deployment): sign in at `https://jas-olive.vercel.app/admin/login.html`, open `/admin/`, change a status inline and in the detail panel, and refresh to confirm both persist and the counts update. Edit notes, save, refresh and confirm they persist; clear them and confirm the confirmation dialog appears. Filter/search to a subset, use **Export CSV**, and open the file in Excel/Google Sheets to confirm only the filtered rows appear and commas/quotes display correctly. Select several enquiries, use **Mark as… → Apply**, confirm the dialog, and verify all selected rows changed after refresh. Log out and confirm you are returned to the login page.
+
 ### Test flow
 
 1. Deploy the branch to Vercel (or merge the pull request into `main`).
@@ -246,7 +254,7 @@ See **TESTING.md** for the owner checklist and the build-verification record. Re
 
 ## Known limits
 
-- The admin dashboard is read-only in Phase 11; status and notes editing and CSV export are planned for Phase 12. Analytics are not implemented.
+- The admin dashboard supports status and internal-notes editing, filtered CSV export and bulk status updates (Phase 12); actions are owner-only via Supabase RLS. Analytics are not implemented.
 - Enquiries and optional attachments submit to the backend; WhatsApp/email handoffs are alternatives and require sending in the chosen app. Selecting Call records a callback preference; it does not place a call automatically.
 - Attachments are capped at 3 files and 4 MB combined; larger files must be shared via WhatsApp/email. No malware scanning or automatic retention cleanup is provided.
 - No payment processing. Payment terms are agreed in the quote.
