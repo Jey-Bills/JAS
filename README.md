@@ -153,7 +153,7 @@ Beginning with Phase 8, the quote request form on `contact.html` submits briefs 
 
 ### Required accounts
 
-- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (`/api/submit` has a 30-second `maxDuration`; other functions default to 10 seconds).
+- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (all functions use a 30-second `maxDuration`, configured in `vercel.json` via the single `api/*.js` glob to accommodate file uploads in `/api/submit`).
 - **Supabase** — PostgreSQL database storing `enquiries` and enforcing IP-based submission rate limits via `rate_limits` and `consume_enquiry_rate_limit`.
 - **Resend** — sends transactional email notifications when a new enquiry arrives.
 
