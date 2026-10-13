@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>Admin Dashboard — Jey's Academic Studio</title>
-<meta content="Protected admin dashboard for Jey's Academic Studio." name="description"/>
+<meta content="Protected, read-only enquiry dashboard for Jey's Academic Studio." name="description"/>
 <meta content="noindex, nofollow" name="robots"/>
 <meta content="#0f1e3d" name="theme-color"/>
 <link href="../assets/favicon.svg" rel="icon" type="image/svg+xml"/>
@@ -15,18 +15,19 @@
 <script src="../js/config.js"></script>
 <script defer="" src="../js/data.js"></script>
 <script src="../js/admin-auth.js" type="module"></script>
+<script src="../js/admin-dashboard.js" type="module"></script>
 </head>
 <body id="admin-dashboard-page">
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header"><div class="container header-inner">
-<div class="admin-header-bar">
-  <a aria-label="Jey's Academic Studio — homepage" class="brand" href="../index.html"><span aria-hidden="true" class="brand-mark">JAS</span><span class="brand-name">Jey's Academic Studio</span></a>
-  <span class="admin-badge">Admin</span>
-</div>
-<div class="admin-header-actions">
-  <a class="btn btn--outline admin-logout-btn" href="../index.html">Public Site</a>
-  <button class="btn btn--gold admin-logout-btn" data-admin-logout="" id="admin-logout-btn" type="button">Logout</button>
-</div>
+<header class="site-header"><div class="container header-inner admin-header-inner">
+  <div class="admin-header-bar">
+    <a aria-label="Jey's Academic Studio — homepage" class="brand" href="../index.html"><span aria-hidden="true" class="brand-mark">JAS</span><span class="brand-name">Jey's Academic Studio</span></a>
+    <span class="admin-badge">Admin</span>
+  </div>
+  <div class="admin-header-actions">
+    <a class="btn btn--outline admin-logout-btn" href="../index.html">Public Site</a>
+    <button class="btn btn--gold admin-logout-btn" data-admin-logout="" id="admin-logout-btn" type="button">Logout</button>
+  </div>
 </div></header>
 
 <main id="main" tabindex="-1">
@@ -41,23 +42,208 @@
   </div>
 
   <div hidden="" id="admin-dashboard-content">
-    <section class="admin-hero">
+    <section class="admin-hero admin-dashboard-hero">
       <div class="container">
-        <p class="eyebrow" style="color: var(--gold-2); margin-bottom: 12px;">Studio Administration</p>
-        <h1>Admin</h1>
+        <p class="eyebrow">Studio Administration</p>
+        <h1 id="dashboard-heading">Enquiries</h1>
         <p class="admin-welcome" id="admin-welcome">Signed in as <strong id="admin-user-email"></strong></p>
       </div>
     </section>
 
-    <section class="section">
+    <section aria-labelledby="dashboard-heading" class="section admin-dashboard-section">
       <div class="container">
-        <article class="admin-placeholder-card">
-          <h2>Enquiry Management</h2>
-          <p>Dashboard coming in Phase 11.</p>
-          <p class="small-note">Your authentication session is active. Use the Logout button in the header when finished.</p>
-        </article>
+        <div aria-live="polite" class="admin-loading" id="admin-loading" role="status">
+          <span class="visually-hidden">Loading enquiries…</span>
+          <div aria-hidden="true" class="admin-stats-skeleton">
+            <div class="admin-skeleton admin-skeleton-stat"></div>
+            <div class="admin-skeleton admin-skeleton-stat"></div>
+            <div class="admin-skeleton admin-skeleton-stat"></div>
+            <div class="admin-skeleton admin-skeleton-stat"></div>
+          </div>
+          <div aria-hidden="true" class="admin-skeleton admin-skeleton-list"></div>
+        </div>
+
+        <section aria-live="assertive" class="admin-load-error" hidden="" id="admin-load-error" role="alert">
+          <div class="admin-error-mark" aria-hidden="true">!</div>
+          <div>
+            <h2>We couldn't load the enquiries</h2>
+            <p>Access may be blocked by Supabase row-level security (RLS), or the connection may be temporarily unavailable. Check that you are signed in with the studio owner account and that the Phase 10 enquiry SELECT policy is active.</p>
+            <div class="admin-error-actions">
+              <button class="btn btn--navy" id="admin-retry-load" type="button">Try again</button>
+              <button class="btn btn--light" data-admin-logout="" type="button">Logout</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="admin-dashboard-view" hidden="" id="admin-dashboard-view">
+          <section aria-label="Enquiry statistics" class="admin-stats-grid">
+            <article class="admin-stat-card">
+              <span class="admin-stat-label">Total enquiries</span>
+              <strong class="admin-stat-value" id="stat-total">0</strong>
+              <span class="admin-stat-hint">All records</span>
+            </article>
+            <article class="admin-stat-card">
+              <span class="admin-stat-label">New</span>
+              <strong class="admin-stat-value" id="stat-new">0</strong>
+              <span class="admin-stat-hint">Awaiting review</span>
+            </article>
+            <article class="admin-stat-card">
+              <span class="admin-stat-label">This week</span>
+              <strong class="admin-stat-value" id="stat-week">0</strong>
+              <span class="admin-stat-hint">Last 7 days</span>
+            </article>
+            <article class="admin-stat-card">
+              <span class="admin-stat-label">This month</span>
+              <strong class="admin-stat-value" id="stat-month">0</strong>
+              <span class="admin-stat-hint">Current calendar month</span>
+            </article>
+          </section>
+
+          <section aria-labelledby="filter-heading" class="admin-filter-panel">
+            <div class="admin-filter-heading-row">
+              <div>
+                <p class="eyebrow">Find a record</p>
+                <h2 id="filter-heading">Filters &amp; search</h2>
+              </div>
+              <button class="btn btn--light admin-clear-filters" id="clear-filters" type="button">Clear filters</button>
+            </div>
+            <div class="admin-filter-grid">
+              <div class="admin-filter-field">
+                <label for="filter-status">Status</label>
+                <select id="filter-status" name="status">
+                  <option value="">All statuses</option>
+                  <option value="new">New</option>
+                  <option value="quoted">Quoted</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="paid">Paid</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div class="admin-filter-field">
+                <label for="filter-level">Academic level</label>
+                <select id="filter-level" name="level">
+                  <option value="">All levels</option>
+                  <option value="BSc">BSc</option>
+                  <option value="MSc">MSc</option>
+                  <option value="MPhil">MPhil</option>
+                  <option value="BSN">BSN</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="admin-filter-field">
+                <label for="filter-service">Service</label>
+                <select id="filter-service" name="service">
+                  <option value="">All services</option>
+                </select>
+              </div>
+              <div class="admin-filter-field">
+                <label for="filter-date-range">Date range</label>
+                <select id="filter-date-range" name="date-range">
+                  <option value="all">All time</option>
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="custom">Custom range</option>
+                </select>
+              </div>
+              <div class="admin-filter-field admin-search-field">
+                <label for="filter-search">Search</label>
+                <input autocomplete="off" id="filter-search" maxlength="200" name="search" placeholder="Name, email, phone or description" type="search"/>
+              </div>
+            </div>
+            <div class="admin-custom-date" hidden="" id="custom-date-fields">
+              <div class="admin-filter-field">
+                <label for="filter-date-from">From</label>
+                <input id="filter-date-from" name="date-from" type="date"/>
+              </div>
+              <div class="admin-filter-field">
+                <label for="filter-date-to">To</label>
+                <input id="filter-date-to" name="date-to" type="date"/>
+              </div>
+              <p>Choose either date or both. The end date is inclusive.</p>
+            </div>
+          </section>
+
+          <section aria-labelledby="enquiry-list-heading" class="admin-results-panel">
+            <div class="admin-results-heading">
+              <div>
+                <p class="eyebrow">Inbox</p>
+                <h2 id="enquiry-list-heading">All enquiries</h2>
+              </div>
+              <p aria-live="polite" class="admin-result-summary" id="enquiry-result-summary"></p>
+            </div>
+
+            <div class="admin-empty-state" hidden="" id="no-enquiries">
+              <div aria-hidden="true" class="admin-empty-icon">✦</div>
+              <h3>No enquiries yet</h3>
+              <p>New briefs sent through the website will appear here.</p>
+              <a class="text-link" href="../contact.html">Open the contact page <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="admin-empty-state" hidden="" id="no-matches">
+              <div aria-hidden="true" class="admin-empty-icon">⌕</div>
+              <h3>No matching enquiries</h3>
+              <p>Try adjusting your search or clearing one or more filters.</p>
+              <button class="admin-inline-button" id="clear-filters-empty" type="button">Clear filters</button>
+            </div>
+
+            <div class="admin-enquiry-lists" hidden="" id="enquiry-lists">
+              <div class="admin-table-wrap">
+                <table class="admin-enquiry-table">
+                  <caption class="visually-hidden">Enquiries. Select a sortable column heading to change the sort order.</caption>
+                  <thead>
+                    <tr>
+                      <th aria-sort="descending" scope="col"><button data-sort="created_at" type="button">Date <span aria-hidden="true" data-sort-indicator="">↓</span></button></th>
+                      <th aria-sort="none" scope="col"><button data-sort="name" type="button">Name <span aria-hidden="true" data-sort-indicator="">↕</span></button></th>
+                      <th aria-sort="none" scope="col"><button data-sort="level" type="button">Level <span aria-hidden="true" data-sort-indicator="">↕</span></button></th>
+                      <th scope="col">Service</th>
+                      <th aria-sort="none" scope="col"><button data-sort="status" type="button">Status <span aria-hidden="true" data-sort-indicator="">↕</span></button></th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="enquiry-table-body"></tbody>
+                </table>
+              </div>
+              <div aria-label="Enquiry list" class="admin-mobile-cards" id="enquiry-mobile-cards"></div>
+            </div>
+            <div class="admin-load-more-wrap">
+              <button class="btn btn--light" hidden="" id="load-more-enquiries" type="button">Load more</button>
+            </div>
+          </section>
+        </div>
       </div>
     </section>
+
+    <dialog aria-labelledby="detail-heading" aria-modal="true" class="admin-detail" id="enquiry-detail">
+      <div class="admin-detail-header">
+        <div class="admin-detail-title-row">
+          <div>
+            <p class="admin-detail-kicker">Enquiry · Ref <code id="detail-reference">—</code></p>
+            <h2 id="detail-heading">Enquiry details</h2>
+            <p class="admin-detail-date" id="detail-date"></p>
+          </div>
+          <button aria-label="Close enquiry details" class="admin-detail-close" id="close-enquiry-detail" type="button">×</button>
+        </div>
+        <span class="admin-status-badge admin-status-unknown" id="detail-status">Unknown</span>
+      </div>
+      <div class="admin-detail-content">
+        <section aria-labelledby="detail-fields-heading">
+          <h3 id="detail-fields-heading">Submitted details</h3>
+          <dl class="admin-detail-fields" id="detail-fields"></dl>
+        </section>
+        <section aria-labelledby="detail-description-heading">
+          <h3 id="detail-description-heading">Description</h3>
+          <p class="admin-detail-long-text" id="detail-description"></p>
+        </section>
+        <section aria-labelledby="detail-attachments-heading">
+          <h3 id="detail-attachments-heading">Attached files</h3>
+          <div id="detail-attachments"></div>
+          <p class="admin-private-file-note">Downloads are private, owner-only links that expire after 60 seconds.</p>
+        </section>
+        <div class="admin-detail-footer">
+          <button class="btn btn--navy" id="close-detail-footer" type="button">Close details</button>
+        </div>
+      </div>
+    </dialog>
   </div>
 </main>
 

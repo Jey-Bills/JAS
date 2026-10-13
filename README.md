@@ -153,7 +153,7 @@ Beginning with Phase 8, the quote request form on `contact.html` submits briefs 
 
 ### Required accounts
 
-- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (all functions use a 30-second `maxDuration`, configured in `vercel.json` via the single `api/*.js` glob to accommodate file uploads in `/api/submit`).
+- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (including nested admin functions); the top-level and `/api/admin/*.js` functions use a 30-second `maxDuration` in `vercel.json`.
 - **Supabase** — PostgreSQL database storing `enquiries` and enforcing IP-based submission rate limits via `rate_limits` and `consume_enquiry_rate_limit`.
 - **Resend** — sends transactional email notifications when a new enquiry arrives.
 
@@ -162,7 +162,7 @@ Beginning with Phase 8, the quote request form on `contact.html` submits briefs 
 Configure the following environment variables in your Vercel project settings (and in a local `.env` file if testing with Vercel CLI — never commit `.env` to Git; see `.env.example`):
 
 - `SUPABASE_URL` — your Supabase project URL (`https://<project-ref>.supabase.co`).
-- `SUPABASE_SECRET_KEY` — your Supabase service role / secret key (used server-side only in `/api/submit`; falls back to `SUPABASE_SERVICE_ROLE_KEY`). Never expose this key in browser code.
+- `SUPABASE_SECRET_KEY` — your Supabase service role / secret key (used server-side only by `/api/submit` and `/api/admin/signed-url`; falls back to `SUPABASE_SERVICE_ROLE_KEY`). Never expose this key in browser code.
 - `SUPABASE_ANON_KEY` — your Supabase public anon/publishable key (used browser-side for `/admin` authentication with RLS enabled; falls back to `SUPABASE_PUBLISHABLE_KEY`).
 - `RESEND_API_KEY` — your Resend API key (`re_...`).
 
@@ -210,9 +210,17 @@ ALTER TABLE public.enquiries
 
 Phase 10 adds a protected studio-owner sign-in flow at `/admin/login.html` and a protected dashboard shell at `/admin/` (`/admin/index.html`) using Supabase Auth with the public anon/publishable key.
 
-- **SQL setup:** Run [`supabase/phase10-admin-auth.sql`](supabase/phase10-admin-auth.sql) in the Supabase SQL Editor to enable Row Level Security (RLS) on `public.enquiries` and `public.rate_limits`, grant `authenticated` `SELECT` and column-restricted `UPDATE (status, notes, file_paths)` on `public.enquiries` (and `SELECT` on `public.rate_limits`), and keep `anon` blocked while preserving `service_role` access for `/api/submit`.
+- **SQL setup:** Run [`supabase/phase10-admin-auth.sql`](supabase/phase10-admin-auth.sql) in the Supabase SQL Editor to enable Row Level Security (RLS) on `public.enquiries` and `public.rate_limits`, grant `authenticated` `SELECT` and column-restricted `UPDATE (status, notes, file_paths)` on `public.enquiries` (and `SELECT` on `public.rate_limits`), and keep `anon` blocked while preserving `service_role` access for backend functions.
 - **Client configuration:** `js/supabase-client.js` reads `window.JAS_CONFIG` (`js/config.js`) or fetches `/api/config`, which exposes only `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) — never the secret/service-role key.
 - **Rate limiting:** `js/admin-auth.js` enforces a 15-minute client-side lockout in `localStorage` after 5 consecutive failed sign-in attempts within 15 minutes.
+
+### Read-only enquiry dashboard (Phase 11)
+
+`/admin/` and `/admin/index.html` show the owner all RLS-visible enquiries, counts, combinable filters, search, sorting, and a read-only detail drawer. Lists are loaded directly with the browser Supabase client and the authenticated session; no public read endpoint or new SQL is used. Desktop shows a table, while screens below 720px use enquiry cards. Results are displayed in batches of 50, with a load-more button.
+
+Private attachments are downloaded through `/api/admin/signed-url` (source file: `api/admin/signed-url.js`). That server-side function verifies the access token with Supabase Auth, requires the owner email, confirms the path is still listed in the enquiry's `file_paths`, and creates a private Storage URL that expires after 60 seconds. It uses `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) server-side only; the browser never receives the service-role key or creates signed URLs.
+
+**Phase 11 live checks** (after deployment): open `https://jas-olive.vercel.app/admin/login.html`, sign in as the studio owner, and confirm `/admin/` shows enquiry counts and rows. Search/filter a known record, open it, and confirm its fields and attachments. Use Download and confirm the file arrives; in DevTools Network, the signed-url request should be authenticated and the returned link should not appear in console logs. At a phone width, confirm cards and a full-screen detail view. Test the no-data state only when the table is empty. A failed enquiry read displays an RLS/connection message with retry and logout controls.
 
 ### Test flow
 
@@ -238,7 +246,7 @@ See **TESTING.md** for the owner checklist and the build-verification record. Re
 
 ## Known limits
 
-- No user accounts, admin panel, payment processing or analytics yet.
+- The admin dashboard is read-only in Phase 11; status and notes editing and CSV export are planned for Phase 12. Analytics are not implemented.
 - Enquiries and optional attachments submit to the backend; WhatsApp/email handoffs are alternatives and require sending in the chosen app. Selecting Call records a callback preference; it does not place a call automatically.
 - Attachments are capped at 3 files and 4 MB combined; larger files must be shared via WhatsApp/email. No malware scanning or automatic retention cleanup is provided.
 - No payment processing. Payment terms are agreed in the quote.
