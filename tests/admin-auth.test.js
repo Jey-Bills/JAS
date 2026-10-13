@@ -325,7 +325,10 @@ test('Phase 10 HTML, SQL, and browser files meet acceptance and security constra
 
   // Dashboard page checks
   assert.match(dashboardHtml, /Signed in as/);
-  assert.match(dashboardHtml, /Dashboard coming in Phase 11\./);
+  assert.match(dashboardHtml, /id="stat-total"/);
+  assert.match(dashboardHtml, /id="filter-status"/);
+  assert.match(dashboardHtml, /id="enquiry-table-body"/);
+  assert.doesNotMatch(dashboardHtml, /Dashboard coming in Phase 11\./);
   assert.match(dashboardHtml, /id="admin-logout-btn"/);
 
   // SQL checks
@@ -335,7 +338,7 @@ test('Phase 10 HTML, SQL, and browser files meet acceptance and security constra
   assert.match(sql, /FOR UPDATE\s+TO authenticated/i);
 
   // Ensure no browser-facing file references or exposes service role / secret env vars
-  for (const file of ['admin/login.html', 'admin/index.html', 'js/config.js', 'js/admin-auth.js']) {
+  for (const file of ['admin/login.html', 'admin/index.html', 'js/config.js', 'js/admin-auth.js', 'js/supabase-client.js', 'js/admin-dashboard.js']) {
     const content = fs.readFileSync(file, 'utf8');
     assert.ok(!content.includes('process.env.SUPABASE_SECRET_KEY'));
     assert.ok(!content.includes('process.env.SUPABASE_SERVICE_ROLE_KEY'));
