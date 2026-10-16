@@ -18,7 +18,7 @@
         { id: 'comprehensive', name: 'Comprehensive Case Study', description: 'Guidance on structure, clinical reasoning, care plans and references.' },
         { id: 'complex', name: 'Complex Case', description: 'Support for complex cases with extensive care plans, individually quoted after review.' }
       ] },
-      { id: 'editing-formatting', name: 'Editing & Refinement', description: 'Grammar, clarity, tone, structure and formatting — from light polish to substantial refinement.', subServices: [
+      { id: 'editing-formatting', name: 'Research & Case Study Edits', description: 'Grammar, clarity, tone and structure for research drafts and case studies — from light polish to substantial restructuring.', subServices: [
         { id: 'light', name: 'Light Editing', description: 'Grammar, spelling and clarity for structurally sound drafts.' },
         { id: 'moderate', name: 'Moderate Refinement', description: 'Flow, tone, repetition and consistency fixes.' },
         { id: 'substantial', name: 'Substantial Refinement', description: 'Restructuring, reorganisation and argument-flow improvements. Major research redesign excluded.' }
@@ -47,7 +47,7 @@
       { id: 'instrument', group: 'technical', scope: 'Instrument development support', min: 200, max: 400, status: 'provisional' },
       { id: 'cleaning', group: 'technical', scope: 'Data entry and cleaning', min: 150, max: 350, status: 'provisional' },
       { id: 'descriptive', group: 'technical', scope: 'Descriptive statistics and tables', min: 250, max: 400, status: 'provisional' },
-      { id: 'inferential', group: 'technical', scope: 'Inferential / complex SPSS analysis', min: 400, max: 800, status: 'provisional' },
+      { id: 'inferential', group: 'technical', scope: 'Inferential and complex statistical analysis', min: 400, max: 800, status: 'provisional' },
       { id: 'interpretation', group: 'technical', scope: 'Results interpretation session', min: 150, max: 300, status: 'provisional' },
       { id: 'discussion', group: 'technical', scope: 'Results and discussion coaching', min: 200, max: 450, status: 'provisional' },
       { id: 'defence', group: 'technical', scope: 'Research defence coaching', min: 150, max: 300, status: 'provisional' },
