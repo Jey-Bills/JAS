@@ -109,6 +109,7 @@ export function getEnquiryStats(enquiries, now = new Date()) {
 export function filterEnquiries(enquiries, filters = {}, now = new Date()) {
   const rows = Array.isArray(enquiries) ? enquiries : [];
   const currentTime = asDate(now)?.getTime() ?? Date.now();
+  const currentDate = new Date(currentTime);
   const query = String(filters.search || '').trim().toLocaleLowerCase();
   const status = String(filters.status || '').toLowerCase();
   const level = String(filters.level || '').toLocaleLowerCase();
@@ -121,7 +122,24 @@ export function filterEnquiries(enquiries, filters = {}, now = new Date()) {
     if (service && String(row?.service || '').trim().toLocaleLowerCase() !== service) return false;
 
     const time = createdTime(row);
-    if (range === '7d' || range === '30d') {
+    if (range === 'today') {
+      // Current calendar day in the viewer's local timezone: 00:00:00.000 → 23:59:59.999.
+      const dayStart = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate()
+      ).getTime();
+      const dayEnd = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        23,
+        59,
+        59,
+        999
+      ).getTime();
+      if (time === null || time < dayStart || time > dayEnd) return false;
+    } else if (range === '7d' || range === '30d') {
       const days = range === '7d' ? 7 : 30;
       if (time === null || time < currentTime - days * DAY_MS || time > currentTime) return false;
     } else if (range === 'custom') {
