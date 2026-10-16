@@ -4,14 +4,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<!-- Hosted errors may occur at nested URLs. Local file opening keeps relative paths. -->
-<script>
-if (window.location.protocol !== 'file:') {
-  var errorBase = document.createElement('base');
-  errorBase.href = '/';
-  document.head.appendChild(errorBase);
-}
-</script>
+<!-- Keep error-page links and assets rooted at the deployed site, even on nested 404 URLs. -->
+<base href="/"/>
 <title>Page Not Found — Jey's Academic Studio</title>
 <meta content="This page could not be found. Return to Jey's Academic Studio homepage, browse our academic support services, or contact us for guidance." name="description"/>
 <meta content="Jey's Academic Studio" name="author"/>
@@ -27,19 +21,8 @@ if (window.location.protocol !== 'file:') {
 <link href="https://jaysacademic.studio/404.html" rel="canonical"/>
 <link href="assets/favicon.svg" rel="icon" type="image/svg+xml"/>
 <link href="assets/favicon.svg" rel="apple-touch-icon"/>
-<!-- Resolve error-page assets before loading them; avoids speculative requests at bad nested paths. -->
-<script>
-var errorStyles = document.createElement('link');
-errorStyles.rel = 'stylesheet';
-errorStyles.href = window.location.protocol === 'file:' ? 'css/styles.css' : '/css/styles.css';
-document.head.appendChild(errorStyles);
-document.addEventListener('DOMContentLoaded', function () {
-  var errorData = document.createElement('script');
-  errorData.src = window.location.protocol === 'file:' ? 'js/data.js' : '/js/data.js';
-  document.head.appendChild(errorData);
-});
-</script>
-<noscript><base href="/"/><link href="css/styles.css" rel="stylesheet"/></noscript>
+<link href="css/styles.css" rel="stylesheet"/>
+<script defer="" src="js/data.js"></script>
 <meta content="noindex, follow" name="robots"/>
 </head>
 <body>

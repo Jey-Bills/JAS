@@ -1,5 +1,5 @@
 /**
- * Browser-side Supabase client initialisation for Jey's Academic Studio (/admin).
+ * Browser-side Supabase client initialisation for Jey's Academic Studio (/jas-hub).
  * Uses ONLY the public anon/publishable key. Never accepts a service_role or secret key.
  */
 

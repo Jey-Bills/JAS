@@ -340,3 +340,6 @@ fieldset.has-error { padding: 10px; border: 1px solid #b42318; border-radius: 7p
 .remove-file { flex-shrink: 0; background: none; border: 0; padding: 10px 4px; color: var(--navy); text-decoration: underline; text-decoration-color: var(--gold); cursor: pointer; font: inherit; }
 .remove-file:disabled { opacity: 0.5; cursor: wait; }
 .file-field .field-help a { color: var(--navy); text-decoration: underline; }
+
+/* Keep the enquiry honeypot off-screen without an inline style attribute. */
+.honeypot-field { position: absolute; left: -9999px; }

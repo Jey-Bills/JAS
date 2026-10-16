@@ -14,6 +14,8 @@ import {
   requireGuest,
   signIn,
   signOut,
+  checkServerRateLimit,
+  SERVER_RATE_LIMIT_ENDPOINT,
   getRateLimitState,
   clearFailedAttempts,
   setRedirectHandlerForTests,
@@ -109,8 +111,9 @@ test('isForbiddenSecretKey detects sb_secret_ and service_role JWTs', () => {
 
   const serviceRolePayload = Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url');
   const anonPayload = Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url');
-  assert.equal(isForbiddenSecretKey(`eyJhbGciOiJIUzI1NiJ9.${serviceRolePayload}.sig`), true);
-  assert.equal(isForbiddenSecretKey(`eyJhbGciOiJIUzI1NiJ9.${anonPayload}.sig`), false);
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256' })).toString('base64url');
+  assert.equal(isForbiddenSecretKey(`${header}.${serviceRolePayload}.sig`), true);
+  assert.equal(isForbiddenSecretKey(`${header}.${anonPayload}.sig`), false);
   assert.equal(isForbiddenSecretKey('sb_publishable_safe_key'), false);
 });
 
@@ -138,6 +141,39 @@ test('resolvePublicConfig fetches /api/config when inline config is empty', asyn
   const resolved = await resolvePublicConfig();
   assert.equal(resolved.supabaseUrl, 'https://fetched.supabase.co');
   assert.equal(resolved.supabaseAnonKey, 'sb_publishable_fetched');
+});
+
+test('login calls the server rate-limit endpoint and fails closed when blocked or unavailable', async t => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, options });
+    return new Response(JSON.stringify({ allowed: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  };
+  assert.deepEqual(await checkServerRateLimit(' Owner@Example.com '), { allowed: true });
+  assert.equal(requests[0].url, SERVER_RATE_LIMIT_ENDPOINT);
+  assert.equal(requests[0].options.method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].options.body), { email: 'owner@example.com' });
+
+  globalThis.fetch = async () => new Response(JSON.stringify({ allowed: false, retryAfter: 240 }), {
+    status: 429,
+    headers: { 'Content-Type': 'application/json', 'Retry-After': '240' }
+  });
+  await assert.rejects(
+    () => checkServerRateLimit('owner@example.com'),
+    error => error.code === 'RATE_LIMITED' && error.retryAfter === 240
+  );
+
+  globalThis.fetch = async () => { throw new Error('network unavailable'); };
+  await assert.rejects(
+    () => checkServerRateLimit('owner@example.com'),
+    error => error.code === 'RATE_LIMIT_CHECK_FAILED'
+  );
 });
 
 test('signIn, requireAuth, requireGuest, signOut, and generic error handling', async t => {
@@ -181,7 +217,7 @@ test('signIn, requireAuth, requireGuest, signOut, and generic error handling', a
     setRedirectHandlerForTests(null);
   });
 
-  // 1. Unauthenticated requireAuth redirects to /admin/login.html
+  // 1. Unauthenticated requireAuth redirects to /jas-hub/login.html
   redirectedTo = null;
   const authCheck1 = await requireAuth();
   assert.equal(authCheck1, null);
@@ -216,7 +252,7 @@ test('signIn, requireAuth, requireGuest, signOut, and generic error handling', a
   assert.equal(loginRes.user.email, 'jessenyarko192@gmail.com');
   assert.equal(getRateLimitState().attempts, 0);
 
-  // 6. Authenticated requireGuest redirects to /admin/
+  // 6. Authenticated requireGuest redirects to /jas-hub/
   redirectedTo = null;
   const guestCheck2 = await requireGuest();
   assert.ok(guestCheck2);
@@ -228,7 +264,7 @@ test('signIn, requireAuth, requireGuest, signOut, and generic error handling', a
   assert.equal(authCheck2.user.email, 'jessenyarko192@gmail.com');
   assert.equal(redirectedTo, null);
 
-  // 8. signOut clears session and redirects to /admin/login.html
+  // 8. signOut clears session and redirects to /jas-hub/login.html
   redirectedTo = null;
   await signOut();
   assert.equal(await getSession(), null);
@@ -310,9 +346,9 @@ test('5 failed attempts within 15 minutes locks login for 15 minutes', async t =
   assert.equal(unlockedState.attempts, 0);
 });
 
-test('Phase 10 HTML, SQL, and browser files meet acceptance and security constraints', () => {
-  const loginHtml = fs.readFileSync('admin/login.html', 'utf8');
-  const dashboardHtml = fs.readFileSync('admin/index.html', 'utf8');
+test('admin HTML, SQL, and browser files meet Phase 13 acceptance and security constraints', () => {
+  const loginHtml = fs.readFileSync('jas-hub/login.html', 'utf8');
+  const dashboardHtml = fs.readFileSync('jas-hub/index.html', 'utf8');
   const sql = fs.readFileSync('supabase/phase10-admin-auth.sql', 'utf8');
 
   // Login page checks
@@ -321,7 +357,15 @@ test('Phase 10 HTML, SQL, and browser files meet acceptance and security constra
   assert.match(loginHtml, /id="login-password"/);
   assert.match(loginHtml, /Authorised access only\. Failed attempts are logged\./);
   assert.match(loginHtml, /href="\.\.\/index\.html"/);
-  assert.ok(!/value="jessenyarko192@gmail\.com"/i.test(loginHtml), 'Email field must not be prefilled');
+  assert.doesNotMatch(loginHtml, /jessenyarko192@gmail\.com/i, 'Login page must not display the owner email');
+  assert.doesNotMatch(dashboardHtml, /jessenyarko192@gmail\.com/i, 'Unauthenticated dashboard shell must not display the owner email');
+  assert.doesNotMatch(loginHtml, /id="login-email"[^>]*(?:placeholder|value)=/i, 'Email field must start blank');
+  assert.doesNotMatch(loginHtml, /login-email-hint/i, 'Login page must not show an email hint');
+  const authSource = fs.readFileSync('js/admin-auth.js', 'utf8');
+  assert.ok(
+    authSource.indexOf('await checkServerRateLimit(emailVal)') < authSource.indexOf('await signIn(emailVal, passwordVal)'),
+    'Server limit must be checked before Supabase password sign-in'
+  );
 
   // Dashboard page checks
   assert.match(dashboardHtml, /Signed in as/);
@@ -338,9 +382,16 @@ test('Phase 10 HTML, SQL, and browser files meet acceptance and security constra
   assert.match(sql, /FOR UPDATE\s+TO authenticated/i);
 
   // Ensure no browser-facing file references or exposes service role / secret env vars
-  for (const file of ['admin/login.html', 'admin/index.html', 'js/config.js', 'js/admin-auth.js', 'js/supabase-client.js', 'js/admin-dashboard.js']) {
+  for (const file of ['jas-hub/login.html', 'jas-hub/index.html', 'js/config.js', 'js/admin-auth.js', 'js/supabase-client.js', 'js/admin-dashboard.js']) {
     const content = fs.readFileSync(file, 'utf8');
     assert.ok(!content.includes('process.env.SUPABASE_SECRET_KEY'));
     assert.ok(!content.includes('process.env.SUPABASE_SERVICE_ROLE_KEY'));
   }
+
+  assert.equal(fs.existsSync('admin'), false, 'Old static admin folder must be removed');
+  assert.equal(LOGIN_URL, '/jas-hub/login.html');
+  assert.equal(DASHBOARD_URL, '/jas-hub/');
+  const routes = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+  assert.ok(routes.rewrites.some(rule => rule.source === '/jas-hub/' && rule.destination === '/jas-hub/index.html'));
+  assert.ok(!routes.rewrites.some(rule => rule.source.startsWith('/admin')));
 });
