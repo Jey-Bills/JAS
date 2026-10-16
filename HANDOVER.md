@@ -1,152 +1,114 @@
-# Handover — Jey's Academic Studio Website
+# Handover — Jey's Academic Studio
 
-Prepared for Jesse Nyarko. Build date: **13 October 2026**.
+This handover is for the studio owner and the person maintaining the website. It describes the Phase 13 source changes and the steps needed before they become live.
 
-## What was built
+## Release status
 
-### Main website
+- **Repository:** https://github.com/Jey-Bills/JAS
+- **Production URL:** https://jas-olive.vercel.app/
+- **Hosting:** Vercel deploys the connected GitHub `main` branch.
+- **Current release:** Phases 1–12 are reported as merged and live.
+- **Phase 13:** These changes are on the existing work branch until the owner reviews and merges its pull request. They are not live just because the files are present in the branch.
+- **Before merging Phase 13:** Run `supabase/phase13-auth-rate-limits.sql` in the correct Supabase project, then follow `TESTING.md` on the Vercel preview. Do not deploy the login change before the SQL function exists; the login check is designed to stop sign-in if protection is unavailable.
 
-- **Homepage:** the studio introduction, availability, four service categories and enquiry options.
-- **Services:** an overview of the categories and help choosing a starting point.
-- **Pricing:** all supplied price bands together, with status labels, urgency and payment notes.
-- **How It Works:** six steps from choosing support to an agreed revision round, with authorship boundaries.
-- **About:** studio introduction, working principles and the audiences served; no invented credentials.
-- **FAQ:** 11 questions with keyboard-accessible expanding answers.
-- **Contact:** WhatsApp, two telephone numbers, email, and a validated brief-preparation form.
-- **Privacy:** draft notice covering enquiries, external resources and communications providers.
-- **Page not found:** a 404 page with homepage and service links.
+The future domain `jeyacademichub.com` has not been purchased or connected. See `DOMAIN_SWAP.md` when that changes.
 
-### Assignments & Presentations
+## What is built
 
-- Category overview.
-- Word Assignments: separate BSc and MSc/MPhil page-band tables.
-- PowerPoint Presentations: slide-count bands and scope factors.
+### Public website
 
-### Research Support
+The public site is made from plain HTML, CSS and browser JavaScript. It includes the studio's home, service, pricing, process, about, FAQ, contact and privacy pages, plus a custom 404 page. Prices and shared contact data come from `js/data.js`; relevant page copy and contact fallbacks are in HTML. There is no frontend framework or build step.
 
-- Category overview.
-- Diagnostic Research Review: what is assessed, what feedback is provided and what is excluded.
-- Specialist Technical Support: nine task-based services.
-- End-to-End Research Guidance: four milestones and two package ranges.
+The public enquiry form is on https://jas-olive.vercel.app/contact.html. Its copy, prices and layout were not changed in Phase 13. The public contact inbox is intentionally shown as a business contact on public pages; it is not prefilled, hinted at or displayed on the owner sign-in page.
 
-### BSN Case Studies
+### Enquiries, email and attachments
 
-- Category overview.
-- Comprehensive Case Study.
-- Complex Case, individually quoted after review.
+- `POST /api/submit` validates enquiry fields and uses the existing Supabase enquiry rate limit before saving.
+- Enquiries are stored in `public.enquiries`.
+- Optional uploaded files use the private Supabase Storage bucket `enquiry-files`; the current form has limits and accepted file types documented in `TESTING.md`.
+- Resend sends a notification to the studio inbox from `JAS Enquiries <onboarding@resend.dev>`. The sender domain is still in test mode. The existing notification does not send a customer confirmation email.
+- If the enquiry is saved but an upload or email step fails, the handler can still return success with a warning. Check Supabase and the Vercel function log before asking a customer to submit the same enquiry again.
 
-### Editing & Formatting
+### Owner dashboard
 
-- Category overview.
-- Light Editing.
-- Moderate Refinement.
-- Substantial Refinement, with major research redesign excluded.
+The owner sign-in page is https://jas-olive.vercel.app/jas-hub/login.html. The dashboard is https://jas-olive.vercel.app/jas-hub/.
 
-### Supporting work
+The dashboard supports searching, filtering, sorting, enquiry details and private file downloads. The owner can update enquiry status and internal notes, export the filtered results to CSV, and apply a status to selected enquiries. Enquiry reads and permitted changes use the browser's public Supabase key and the signed-in owner session; RLS enforces access.
 
-- One shared stylesheet and one shared JavaScript/data file.
-- Consistent headers, footers and floating WhatsApp links on all 23 HTML pages.
-- Mobile menu, semantic structure, visible focus indicators and reduced-motion support.
-- Exact supplied per-page metadata, canonical links and social-sharing tags.
-- SVG JAS favicon.
-- Sitemap of 22 main pages and robots.txt. The 404 page is not included in the sitemap and is marked noindex.
-- README.md, HANDOVER.md and TESTING.md.
+The page folder is `jas-hub/`. The separate `/api/admin/` server route remains in place for signed downloads. It verifies the Supabase session token server-side, checks the owner account and checks that the requested file is still listed on the enquiry. The old static `/admin/` route intentionally returns 404 without redirecting.
 
-## What is confirmed vs provisional
+### Phase 13 security changes
 
-- **Confirmed ranges:** BSc Word assignments, MSc/MPhil Word assignments, PowerPoint slide pricing.
-- **Provisional:** editing, diagnostic review and technical support.
-- **Target ranges:** BSc and MSc/MPhil research packages, BSN comprehensive case study.
-- **Individually quoted:** BSN complex case retains its **provisional GH₵1,000–1,400** range and also shows a **Quote individually** badge. A firm quote requires case review.
+- Vercel sends a Content Security Policy, MIME-sniffing protection, frame protection, referrer and permissions policies, and HSTS.
+- The policy allows the required local files, Supabase services, Supabase JavaScript CDN, Google Fonts and Unsplash image. Inline scripts and inline style attributes were removed instead of allowing `unsafe-inline`.
+- The sign-in page's email input starts blank and has no owner-email hint. The client-side owner check remains; the sign-in page itself does not display the owner address.
+- Before Supabase password sign-in, the page calls `/api/auth/check-rate-limit`. The server hashes the normalized email and client IP and atomically counts attempts in a 15-minute window. Attempts one through five are allowed; the sixth is blocked. A failed server check stops sign-in.
+- Serverless errors use structured, redacted JSON log lines with a request ID. Request bodies, uploaded files, secrets and signed URLs are not logged.
+- `supabase/phase13-auth-rate-limits.sql` creates the `auth_rate_limits` table and `consume_auth_login_rate_limit` function. It keeps RLS enabled, removes public/anon policies on the existing enquiry tables, and restricts authenticated policies to the studio owner.
 
-“Confirmed ranges” does not mean a fixed final fee or guaranteed availability at the lowest end. Every page displaying prices has one concise pricing note in its hero, before the price sections.
+## RLS audit
 
-Displayed price tables and cards read from js/data.js. The minimum postgraduate charge is calculated from its bands. Badges and SEO descriptions should also be reviewed if a price status or range changes; see README.md.
+After the Phase 13 SQL is applied, the expected RLS policies are:
 
-## Brand and contact info used
+| Table | Policy | Command | Allowed role and check |
+| --- | --- | --- | --- |
+| `public.enquiries` | `enquiries_select_authenticated` | SELECT | `authenticated`; only a session whose verified email claim matches the approved owner email. |
+| `public.enquiries` | `enquiries_update_authenticated` | UPDATE | `authenticated`; the same owner check in both `USING` and `WITH CHECK`. SQL grants still limit updates to `status`, `notes` and `file_paths`. |
+| `public.rate_limits` | `rate_limits_select_authenticated` | SELECT | `authenticated`; only the approved owner email. |
+| `public.auth_rate_limits` | None | — | RLS is enabled; there are no policies. Browser roles have no table access; the server-side `service_role` uses the RPC and bypasses RLS. |
 
-- **Confirmed brand:** Jey's Academic Studio.
-- **Tagline:** Expert Assistance. Clear Guidance. Better Academic Work.
-- **WhatsApp:** 0534423173; international link number: 233534423173.
-- **Calls:** 0534423173 and 0205243731.
-- **Email:** jessenyarko192@gmail.com.
-- **Hours shown:** 24/7.
-- **Reply wording supplied:** replies typically within a few hours.
+There should be **no `anon` or `PUBLIC` policies and no anon table privileges** on `enquiries` or `rate_limits`. There are no anon INSERT, SELECT, UPDATE or DELETE policies. The Phase 13 SQL includes a query to list the live policies. The repository does not have a connection to inspect the Supabase production database directly, so the owner must run the SQL and review its results before calling the live RLS state verified.
 
-The studio bio uses the supplied Jesse Nyarko wording, without adding qualifications or experience. The brand is confirmed; the bio remains subject to final wording approval.
+The original Phase 10 script used a general non-null authenticated-user condition. The Phase 13 migration replaces those three policies with an explicit owner email check while preserving the Phase 10 column grants. If another policy was added manually in Supabase, the audit query will show it; remove it only after checking with the maintainer.
 
-## What's pending before launch
+## Environment and account safety
 
-- [ ] Confirm the real domain. The current unconfirmed domain is **jaysacademic.studio**; replace it throughout metadata, sitemap.xml and robots.txt. The brand stays Jey's Academic Studio.
-- [ ] Approve the Jesse Nyarko bio and remove its pre-launch wording note after approval.
-- [ ] Confirm you can meet the displayed 24/7 availability and typical reply-time wording.
-- [ ] Approve price bands, payment terms, urgency surcharge wording and revision limits.
-- [ ] Have privacy.html reviewed against the **Ghana Data Protection Act, 2012 (Act 843)** and actual studio practices, including retention, deletion, confidentiality and provider arrangements.
-- [ ] Confirm the supplied Unsplash library image is suitable and its use meets the applicable licence/terms. Keep a record if replacing it with your own licensed image.
-- [ ] Test on a real Android phone and iPhone, including WhatsApp, email and telephone handoffs.
-- [ ] Test the hosted 404 response on both top-level and nested nonexistent URLs.
-- [ ] Optional: replace the JAS text logo with a transparent-background image logo.
-- [ ] Optional: add a real social link if one exists. None has been invented or shown.
-- [ ] Optional: replace the remote photo with a local image for a more reliable background. Google Fonts remains an external dependency unless also removed or replaced with the existing system-font fallback.
-- [ ] Optional: add a PNG Apple touch icon for broader iOS support; the requested SVG favicon is included.
-- [ ] Keep HANDOVER.md and TESTING.md out of the published folder if you do not want these notes public.
+The Vercel project needs these names, with one of each alternative pair:
 
-## Things to check monthly
+- `SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY` — server-side only
+- `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY` — browser-safe public key, protected by RLS
+- `RESEND_API_KEY` — server-side only
 
-- Price bands and policies still match what you charge.
-- WhatsApp, telephone and email links still work.
-- No broken page links.
-- The homepage image still loads.
-- Availability and reply wording still reflect actual service.
-- Contact details and privacy practices remain accurate.
+Values belong in Vercel's environment-variable settings or an ignored local environment file. Never commit a populated `.env` file, put a server key in `js/`, or share keys in chat. `.env.example` is blank and contains no real key.
 
-## What we deliberately did not build
+Public signups should stay disabled in Supabase Auth. There should be one approved studio-owner account. Do not create additional authenticated users without first reviewing the owner-only RLS policies.
 
-### No admin panel
+## What's pending
 
-The MVP communicates through WhatsApp, email and telephone. Avoiding an admin panel keeps operations simple and avoids adding authentication and enquiry-storage risks before they are needed.
+- [ ] Apply and review `supabase/phase13-auth-rate-limits.sql` in the correct Supabase project.
+- [ ] Review the Phase 13 pull request and automated test results; merge it into `main` only after the database step and Preview checks are complete.
+- [ ] On the deployed release, check the security headers, the new owner URLs and the old-path 404.
+- [ ] Complete the live enquiry form, owner sign-in, dashboard actions and attachment-download checks in `TESTING.md`.
+- [ ] Continue using the existing Vercel URL until the future domain is purchased and configured.
+- [ ] Verify a sending domain with Resend before changing the current sender address.
+- [ ] Review the draft privacy notice against actual data handling and applicable Ghanaian requirements before describing it as final.
+- [ ] Confirm the studio's record-retention and deletion process. There is no automatic database or Storage cleanup job.
+- [ ] Real Android/iPhone testing remains the owner's responsibility.
 
-### No online payments
+## What was deliberately not built
 
-Payment arrangements are part of the scoped quote. No gateway, card collection or automated payment confirmation is included, keeping payment security and provider integrations outside the MVP.
+- No customer accounts, public signup, password reset flow or new dashboard features.
+- No online payments or automated customer confirmation emails.
+- No new analytics, tracking or third-party dependency.
+- No malware scanner or automatic enquiry/file-retention cleanup.
+- No custom domain purchase or DNS changes.
+- No verified Resend sender domain. Resend currently uses its test sender and the existing owner inbox as recipient.
+- No new public write policy. The enquiry API uses server-side credentials; the browser does not get the service-role key.
 
-### No accounts
+## Future improvements to consider
 
-Visitors can enquire without registering. This avoids password management and unnecessary personal-data collection.
+Only plan these with the owner and test them separately:
 
-### No file uploads
+1. Buy and connect `jeyacademichub.com`, verify it in Vercel and Resend, then follow `DOMAIN_SWAP.md`.
+2. Set up a monitored mailbox or forwarding for the chosen public email address; a verified sending domain alone does not create an inbox.
+3. Agree and document an enquiry/file retention period, then consider a reviewed automatic cleanup process.
+4. Consider an additional sign-in safeguard such as multi-factor authentication if Supabase configuration and the owner's workflow support it.
+5. Revisit backup and recovery steps with the Supabase/Vercel account owners.
 
-The form cannot receive attachments. Documents can be shared separately after the initial quote is confirmed. A secure upload system needs access controls, retention policies and careful handling of sensitive documents.
+## Owner runbooks
 
-### No analytics or tracking
-
-There are no tracking scripts. This preserves the simple, privacy-conscious scope. External fonts, the photo, the hosting provider and communication apps may still process technical information; the privacy draft explains this distinction.
-
-## If you need an upgrade later
-
-These are future options, **not included in v1**:
-
-1. A simple form backend, such as Netlify Forms or Formspree, so briefs arrive automatically. Review security, consent and privacy before changing the current no-backend approach.
-2. An enquiry/job tracking panel with controlled access and an appropriate retention policy.
-3. Secure document upload, only with adequate authentication, access restrictions and patient-data safeguards.
-4. Automated invoices and receipts, followed by payments only if operationally useful.
-5. Privacy-conscious analytics, only after updating the privacy notice and assessing consent requirements.
-
-## Decisions made while integrating the seven specifications
-
-- All four supplied “How to choose” options are shown, despite one prompt saying three.
-- There are 23 HTML files including 404.html, and 22 main-page sitemap entries.
-- Prices are rendered from the data file rather than maintained in duplicate HTML tables.
-- Complex BSN pricing is provisional and individually quoted, not relabelled as a confirmed fee.
-- Supplied exact SEO descriptions were retained. Some are outside the general 140–160-character recommendation; unique, accurate wording takes precedence over padding them.
-- Explicitly specified badge, availability, WhatsApp and validation colours are functional exceptions to the brand palette; no new brand colours or fonts were added.
-- There is no header WhatsApp link in the supplied header layout. The header quote button goes to Contact; WhatsApp is available through the CTA, footer, contact cards and floating button.
-- Intentional domain and privacy draft notices remain as honest launch-review items, rather than being concealed.
-
-## Verification
-
-See TESTING.md for the automated build-verification record and remaining owner checks. A desktop browser simulation is not a substitute for real-device app testing or a Ghanaian data-protection review. This handover does not claim the site is already published on the unconfirmed domain.
-
-## Latest content preferences
-
-General pricing disclaimers have been consolidated into one concise note in each relevant hero, before the lead and price sections. The body and footer no longer repeat that general disclaimer. Service-specific exclusions, clinical safeguards and individually quoted scope remain explicit. The FAQ contains 11 questions and uses the owner's revised, welcoming wording for unlisted services and aspirational wording for quality/results, without promising guaranteed grades.
+- `README.md` — project structure, editing, hosting, environment and SQL setup.
+- `TESTING.md` — pre-launch and post-deploy checks with exact commands and URLs.
+- `MONTHLY_CHECKLIST.md` — routine maintenance.
+- `DOMAIN_SWAP.md` — future domain and email transition.

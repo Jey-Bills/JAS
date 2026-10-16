@@ -13,8 +13,9 @@
 import { getSupabaseClient } from './supabase-client.js';
 
 export const OWNER_EMAIL = 'jessenyarko192@gmail.com';
-export const LOGIN_URL = '/admin/login.html';
-export const DASHBOARD_URL = '/admin/';
+export const LOGIN_URL = '/jas-hub/login.html';
+export const DASHBOARD_URL = '/jas-hub/';
+export const SERVER_RATE_LIMIT_ENDPOINT = '/api/auth/check-rate-limit';
 export const RATE_LIMIT_STORAGE_KEY = 'jas_admin_login_attempts';
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCKOUT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -58,6 +59,53 @@ export function isOwnerEmail(email) {
 export function formatLockoutMessage(remainingMs) {
   const minutes = Math.max(1, Math.ceil(remainingMs / 60_000));
   return `Too many failed sign-in attempts. Please wait ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} before trying again.`;
+}
+
+/**
+ * Ask the server to consume/check a login attempt before Supabase Auth is called.
+ * Fail closed when the endpoint cannot be reached or does not return an explicit allow.
+ */
+export async function checkServerRateLimit(email) {
+  const fetchFn = globalThis.fetch;
+  if (typeof fetchFn !== 'function') {
+    const unavailable = new Error('Could not verify sign-in attempts. Please try again shortly.');
+    unavailable.code = 'RATE_LIMIT_CHECK_FAILED';
+    throw unavailable;
+  }
+
+  let response;
+  try {
+    response = await fetchFn(SERVER_RATE_LIMIT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email: String(email ?? '').trim().toLowerCase() }),
+      cache: 'no-store'
+    });
+  } catch {
+    const unavailable = new Error('Could not verify sign-in attempts. Please try again shortly.');
+    unavailable.code = 'RATE_LIMIT_CHECK_FAILED';
+    throw unavailable;
+  }
+
+  const data = await response.json().catch(() => ({}));
+  const retryAfter = Math.max(
+    1,
+    Number(response.headers?.get?.('Retry-After')) ||
+      Number(data.retryAfter ?? data.retry_after) ||
+      60
+  );
+  if (response.status === 429 || data.allowed === false) {
+    const locked = new Error(formatLockoutMessage(retryAfter * 1000));
+    locked.code = 'RATE_LIMITED';
+    locked.retryAfter = retryAfter;
+    throw locked;
+  }
+  if (!response.ok || data.allowed !== true) {
+    const unavailable = new Error('Could not verify sign-in attempts. Please try again shortly.');
+    unavailable.code = 'RATE_LIMIT_CHECK_FAILED';
+    throw unavailable;
+  }
+  return { allowed: true };
 }
 
 /**
@@ -232,7 +280,7 @@ export async function getSession() {
 }
 
 /**
- * Ensure the visitor has an active owner session; otherwise redirect to /admin/login.html.
+ * Ensure the visitor has an active owner session; otherwise redirect to /jas-hub/login.html.
  */
 export async function requireAuth() {
   const session = await getSession();
@@ -244,7 +292,7 @@ export async function requireAuth() {
 }
 
 /**
- * Ensure the visitor is not already logged in; if logged in, redirect to /admin/.
+ * Ensure the visitor is not already logged in; if logged in, redirect to /jas-hub/.
  */
 export async function requireGuest() {
   const session = await getSession();
@@ -323,7 +371,7 @@ export async function signIn(email, password, now = Date.now()) {
 }
 
 /**
- * Clear the active Supabase session and redirect to /admin/login.html.
+ * Clear the active Supabase session and redirect to /jas-hub/login.html.
  */
 export async function signOut() {
   try {
@@ -336,7 +384,7 @@ export async function signOut() {
 }
 
 /**
- * Wire up the /admin/login.html form and states when present in the DOM.
+ * Wire up the /jas-hub/login.html form and states when present in the DOM.
  */
 export async function initLoginPage() {
   if (typeof document === 'undefined') return;
@@ -359,6 +407,7 @@ export async function initLoginPage() {
   const submitText = document.getElementById('login-submit-text');
 
   let lockoutTimer = null;
+  let serverLockedUntil = 0;
 
   const showBannerError = message => {
     if (!errorPanel || !errorText) return;
@@ -382,8 +431,10 @@ export async function initLoginPage() {
 
   const syncLockoutUi = () => {
     const state = getRateLimitState();
-    if (state.locked) {
-      showBannerError(state.message);
+    const serverRemainingMs = Math.max(0, serverLockedUntil - Date.now());
+    if (serverRemainingMs === 0) serverLockedUntil = 0;
+    if (state.locked || serverRemainingMs > 0) {
+      showBannerError(state.locked ? state.message : formatLockoutMessage(serverRemainingMs));
       if (submitBtn) submitBtn.disabled = true;
       if (emailInput) emailInput.disabled = true;
       if (passwordInput) passwordInput.disabled = true;
@@ -391,7 +442,9 @@ export async function initLoginPage() {
       if (!lockoutTimer) {
         lockoutTimer = setInterval(() => {
           const nextState = getRateLimitState();
-          if (!nextState.locked) {
+          const remainingMs = Math.max(0, serverLockedUntil - Date.now());
+          if (remainingMs === 0) serverLockedUntil = 0;
+          if (!nextState.locked && remainingMs === 0) {
             clearInterval(lockoutTimer);
             lockoutTimer = null;
             hideBannerError();
@@ -400,7 +453,9 @@ export async function initLoginPage() {
             if (passwordInput) passwordInput.disabled = false;
             if (submitText) submitText.textContent = 'Sign in';
           } else {
-            showBannerError(nextState.message);
+            showBannerError(nextState.locked
+              ? nextState.message
+              : formatLockoutMessage(remainingMs));
           }
         }, 1000);
       }
@@ -454,6 +509,7 @@ export async function initLoginPage() {
     if (submitText) submitText.textContent = 'Signing in…';
 
     try {
+      await checkServerRateLimit(emailVal);
       await signIn(emailVal, passwordVal);
       if (passwordInput) passwordInput.value = '';
       if (successText) {
@@ -463,6 +519,9 @@ export async function initLoginPage() {
       redirectHandler(DASHBOARD_URL);
     } catch (error) {
       if (passwordInput) passwordInput.value = '';
+      if (error?.code === 'RATE_LIMITED' && Number(error.retryAfter) > 0) {
+        serverLockedUntil = Date.now() + Number(error.retryAfter) * 1000;
+      }
       if (!syncLockoutUi()) {
         showBannerError(error?.message || 'Invalid email or password');
         if (submitBtn) submitBtn.disabled = false;
@@ -474,7 +533,7 @@ export async function initLoginPage() {
 }
 
 /**
- * Wire up the protected /admin/index.html page when present in the DOM.
+ * Wire up the protected /jas-hub/index.html page when present in the DOM.
  */
 export async function initDashboardPage() {
   if (typeof document === 'undefined') return;

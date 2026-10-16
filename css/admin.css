@@ -702,3 +702,5 @@
   .admin-toast { animation: none; }
   .admin-toast--leaving { transition: none; }
 }
+
+.admin-checking-note { margin: 0; color: var(--slate); }

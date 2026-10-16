@@ -10,7 +10,6 @@
   globalThis.JAS_CONFIG = {
     supabaseUrl: existing.supabaseUrl || '',
     supabaseAnonKey: existing.supabaseAnonKey || '',
-    configEndpoint: existing.configEndpoint || '/api/config',
-    ownerEmail: 'jessenyarko192@gmail.com'
+    configEndpoint: existing.configEndpoint || '/api/config'
   };
 })();

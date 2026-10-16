@@ -1,270 +1,172 @@
-# Jey's Academic Studio — Website
+# Jey's Academic Studio — website and backend
 
-A multi-page enquiry-first website for an academic support and research guidance service in Ghana. Built with plain HTML, CSS and JavaScript. No build step, no backend, no accounts.
+Jey's Academic Studio is a plain HTML, CSS and JavaScript website with a Vercel serverless backend. It has no frontend framework and no build step. The public site is enquiry-first; the private dashboard is for the studio owner.
 
-## Quick start
+## Important links
 
-1. Download and unzip the project folder (or clone it).
-2. Double-click **index.html** to open it in your browser.
-3. That's it — no installation, terminal commands or build tools.
+- **Live public site:** https://jas-olive.vercel.app/
+- **Owner sign-in:** https://jas-olive.vercel.app/jas-hub/login.html
+- **Owner dashboard:** https://jas-olive.vercel.app/jas-hub/
+- **Public enquiry form:** https://jas-olive.vercel.app/contact.html
+- **Privacy notice:** https://jas-olive.vercel.app/privacy.html
+- **Repository:** https://github.com/Jey-Bills/JAS
 
-Keep the folders together. Internet access is needed for Google Fonts, the Unsplash homepage photo, and opening WhatsApp. Without internet, the site still uses a system font and a navy hero background. JavaScript needs to be enabled to display prices, open the mobile menu and prepare a brief.
+The owner page lives in `/jas-hub/`. Its server-side attachment API remains at `/api/admin/signed-url`; these are different paths for different purposes. The page address is not a security barrier: Supabase sign-in, server-side checks and row-level security protect the data. The former `/admin/` page address returns **404** and does not redirect or reveal the replacement path.
 
-## Project structure
+## Open the site on your computer
+
+To preview the public pages without installing anything:
+
+1. Download or clone the repository.
+2. Open a terminal in the `JAS` folder.
+3. Run `python3 -m http.server 8000`.
+4. Open http://localhost:8000/ in a browser.
+5. Stop the local server with **Ctrl+C** in the terminal.
+
+On Windows, `py -m http.server 8000` can be used instead of `python3 -m http.server 8000`.
+
+This simple preview only serves files. It does **not** run `/api/` endpoints, so it cannot test submissions, sign-in or downloads. Use a Vercel Preview deployment or the live site for those checks. The deployed 404 page also uses the site's root paths; the local preview is intended for the regular pages.
+
+## Run the automated checks
+
+With Node.js installed, run these exact commands from the repository folder:
+
+```sh
+npm ci
+node --test tests/*.test.js
+```
+
+The tests use mock responses. They check code paths but do not connect to the live Supabase project, send real Resend email, or prove that production DNS or Vercel settings are correct. There is no `npm run build` command.
+
+## Project map
 
 ```text
-jey-academic-studio/
-├── index.html
-├── services.html
-├── pricing.html
-├── how-it-works.html
-├── about.html
-├── faq.html
-├── contact.html
-├── privacy.html
-├── 404.html
-├── sitemap.xml
-├── robots.txt
-├── README.md
+JAS/
+├── index.html, about.html, contact.html, faq.html, how-it-works.html
+├── pricing.html, privacy.html, services.html, 404.html
+├── services/                  Service and sub-service pages
+├── jas-hub/
+│   ├── login.html             Owner sign-in page
+│   └── index.html             Owner dashboard page
+├── css/
+│   ├── styles.css             Public website styles
+│   └── admin.css              Dashboard and sign-in styles
+├── js/
+│   ├── data.js                Public contact data, prices and form behaviour
+│   ├── config.js              Browser-safe public configuration
+│   ├── supabase-client.js     Browser Supabase client using a public key only
+│   ├── admin-auth.js          Owner sign-in/session checks and local UX limit
+│   └── admin-dashboard.js     Search, filters, status, notes, CSV and downloads
+├── api/
+│   ├── submit.js              Public enquiry submission and optional uploads
+│   ├── config.js              Returns only public Supabase settings
+│   ├── auth/check-rate-limit.js Server-side login-attempt check
+│   └── admin/signed-url.js    Owner-verified private download URL
+├── lib/api-error-logger.js    Small, redacting structured error logger
+├── supabase/                  SQL scripts for existing setup and Phase 13
+├── tests/                     Automated Node.js tests
+├── vercel.json                Vercel routes and HTTP security headers
+├── .env.example               Blank environment-variable template; no real keys
 ├── HANDOVER.md
 ├── TESTING.md
-├── css/
-│   └── styles.css
-├── js/
-│   └── data.js
-├── assets/
-│   └── favicon.svg
-└── services/
-    ├── assignments-presentations.html
-    ├── research-support.html
-    ├── bsn-case-studies.html
-    ├── editing-formatting.html
-    ├── assignments-presentations/
-    │   ├── word-assignments.html
-    │   └── powerpoint.html
-    ├── research-support/
-    │   ├── diagnostic-review.html
-    │   ├── technical-support.html
-    │   └── end-to-end.html
-    ├── bsn-case-studies/
-    │   ├── comprehensive.html
-    │   └── complex.html
-    └── editing-formatting/
-        ├── light.html
-        ├── moderate.html
-        └── substantial.html
+├── MONTHLY_CHECKLIST.md
+└── DOMAIN_SWAP.md
 ```
 
-There are **23 HTML files**, including the 404 error page. The sitemap lists the 22 main pages; the error page is deliberately excluded.
+## Editing the public website
 
-## How to edit content
+Make a copy of a file before changing it. This is a static site; save the file and refresh the browser to view an edit.
 
-Use a plain-text editor. Save a copy before editing and refresh the browser after saving. There is nothing to compile.
+- **Prices and shared contact data:** `js/data.js`. Keep currency formatted as **GH₵**. Price status wording and supporting page copy are also present in the relevant HTML pages; review them together if the owner approves a price change.
+- **Service descriptions and page wording:** the matching HTML file under the project root or `services/`.
+- **Colours, type and layout:** `css/styles.css`.
+- **Owner sign-in/dashboard:** `jas-hub/`, `js/admin-auth.js`, `js/admin-dashboard.js` and `css/admin.css`. Do not put a server-side key in any of these browser files.
+- **Public contact fallbacks:** contact details also appear as plain HTML so they still work when JavaScript is unavailable. If an approved public contact changes, update `js/data.js` and the matching HTML fallbacks together.
 
-### Changing prices
+The public inbox address is intentionally displayed on the public website as a business contact. It is not displayed or prefilled on the owner sign-in page. Do not treat a public contact address as a password or secret.
 
-Open **js/data.js** and look for `pricing`. Every displayed price table and price card reads from this list. Each row has a `min`, `max`, `scope` and `status`. Change the numbers, save the file and refresh any page. A starting price uses `from: true` and `max: null`.
+## Backend and hosting
 
-For example, `min: 40, max: 80` displays **GH₵40–80** in a price card. Do not put currency symbols inside the numbers. Keep IDs and group names unchanged.
+Vercel serves the HTML, CSS and browser JavaScript, and runs the files under `api/` as serverless endpoints. A merge into `main` triggers the connected Vercel deployment. There is no framework or generated output directory.
 
-The minimum postgraduate assignment charge is calculated from the postgraduate bands. Policy wording is in the `policy` object in the same file.
+### What each endpoint does
 
-**There are no hardcoded visible price tables to synchronise.** A few search-engine descriptions mention price ranges; review those descriptions in the relevant HTML files when changing prices so search snippets stay accurate. Status badges are part of the HTML: if you change a status, update its badge class and wording wherever that service appears, too.
+- `POST /api/submit` checks the enquiry, applies the existing enquiry rate limit, saves it in Supabase, uploads allowed optional attachments to the private `enquiry-files` bucket, and asks Resend to notify the owner. A saved enquiry remains saved if the email or attachment service has a temporary problem.
+- `GET /api/config` returns only the Supabase project URL and public anon/publishable key. It never returns a server-side key.
+- `POST /api/auth/check-rate-limit` receives an email address before password sign-in. On the server it combines the normalized email with the client IP, hashes the pair, and asks Supabase to allow up to five attempts in a 15-minute window. The sixth attempt is blocked. If the rate-limit service is unavailable, sign-in is stopped rather than allowed through.
+- `POST /api/admin/signed-url` checks the Supabase session token with Supabase Auth, checks that the account is the studio owner, confirms that the file still belongs to the enquiry, and returns a short-lived download URL. Never rename the `/api/admin/` endpoint when changing the page folder.
 
-### Changing contact details
+The browser dashboard reads and updates enquiries through Supabase using the public key and the signed-in user's session. RLS controls those database requests. The service-role/secret key is used only by server-side functions.
 
-The contact object in **js/data.js** supplies the running site's labelled contact details and links wherever `data-contact-*` attributes are present, including WhatsApp messages prepared by the form.
+### Environment variables in Vercel
 
-Also update the readable fallback links and text in the HTML files, so details remain correct when JavaScript is unavailable:
+In the Vercel dashboard, open the JAS project, then **Settings → Environment Variables**. Add the variables below to the required **Production** and **Preview** environments. Use the names exactly as shown; enter values directly in Vercel, not in Git or chat.
 
-- The footer of every page.
-- The floating WhatsApp button on every page.
-- contact.html (the direct contact cards).
-- privacy.html, about.html and documentation.
-- CTA bands on all pages.
+| Variable | Use |
+| --- | --- |
+| `SUPABASE_URL` | Project URL from Supabase. |
+| `SUPABASE_SECRET_KEY` **or** `SUPABASE_SERVICE_ROLE_KEY` | Server-side access for privileged operations. Keep private; set one of these names. |
+| `SUPABASE_ANON_KEY` **or** `SUPABASE_PUBLISHABLE_KEY` | Public browser key. It is safe to expose only because RLS remains enabled. Set one of these names. |
+| `RESEND_API_KEY` | Server-side email sending. |
 
-The header **Request a Quote** button links to contact.html; it does not contain a phone number.
+After changing an environment variable, redeploy the Vercel project so the functions receive the new value. `.env.example` contains blank placeholders only. A real `.env` file is ignored by Git; never add it to a commit.
 
-Search the project for `233534423173`, `0534423173`, `0205243731` and `jessenyarko192@gmail.com` to find existing references. WhatsApp links need the international number, without a plus sign or leading zero. Telephone links use the domestic number.
+### Supabase setup and Phase 13 SQL
 
-### Changing the brand name or tagline
+The live project already has the Phase 8 `enquiries` and `rate_limits` tables and the `consume_enquiry_rate_limit` function. The original Phase 8 schema script is not included in this repository. If you are creating a new Supabase project, ask the maintainer for that original script before continuing; do not guess the schema.
 
-The confirmed brand is **Jey's Academic Studio**. Search for `JAS`, `Jey's Academic Studio`, `Jey’s Academic Studio`, and the tagline across the project. The brand appears in headers, footers, page copy, metadata, messages and the favicon. Keep the spelling consistent.
+For an existing project, use the Supabase dashboard:
 
-### Changing service descriptions
+1. Sign in to the correct Supabase project.
+2. Open **SQL Editor → New query**.
+3. Open each script listed below in a text editor, copy its full contents into the SQL Editor and choose **Run**.
+4. Keep a note of which scripts have been run.
 
-Edit the prose in the relevant HTML page. The `services` array in js/data.js is also available for reuse and must be kept in line with the HTML wording if service names or categories change. Pricing is rendered from the data file; ordinary page prose is stored in HTML.
+Run the scripts in this order when setting up a project:
 
-### Changing the hero background image
+1. The original Phase 8 schema and `consume_enquiry_rate_limit` script (obtain it from the maintainer; it is not in this checkout).
+2. `supabase/phase9-file-uploads.sql` to add attachment metadata. The bucket must remain private; do not turn on public access.
+3. `supabase/phase10-admin-auth.sql` to enable RLS and grant the owner the dashboard permissions.
+4. `supabase/phase13-auth-rate-limits.sql` **before deploying Phase 13**. It creates the hashed login counter and atomic database function, removes any `PUBLIC`/`anon` policies from `enquiries` and `rate_limits`, and narrows the authenticated policies to the approved owner email. It leaves `auth_rate_limits` with RLS enabled and no policies; the server-side service role is the only application role granted access.
 
-Open **css/styles.css** and find the `.hero` rule. Replace its background URL with your own image, for example `url('../assets/library.jpg')`. Keep the navy gradient before the image URL. Use a wide, licensed image at least 2000px wide, optimised for the web.
+The Phase 13 login endpoint depends on the database function `public.consume_auth_login_rate_limit(text)`. If the migration has not run or Supabase cannot reach it, the login page fails closed and reports that sign-in protection is unavailable.
 
-Only the homepage uses the photo background. If you replace the photo, also update the `og:image` URL in each HTML file for social sharing. Social images need an absolute URL on your live domain.
+### Row-level security (RLS)
 
-### Replacing the JAS text logo with an image logo
+After the Phase 13 SQL has run, the expected policies are:
 
-Save your logo in assets/jas-logo.png. In each header, replace the `<span class="brand-mark">…</span>` with an image using `alt="JAS"` and `class="brand-logo"`. Use the correct path:
+| Table | Policy | Who and what it allows |
+| --- | --- | --- |
+| `public.enquiries` | `enquiries_select_authenticated` | The approved owner account can read enquiries. |
+| `public.enquiries` | `enquiries_update_authenticated` | The approved owner account can update only the database columns granted by the Phase 10 SQL (`status`, `notes`, `file_paths`). |
+| `public.rate_limits` | `rate_limits_select_authenticated` | The approved owner account can read the existing enquiry counters. |
+| `public.auth_rate_limits` | **No policies** | RLS is enabled; browser roles have no table/function access. The server-side `service_role` calls the function. |
 
-- Root pages: `assets/jas-logo.png`.
-- Category pages: `../assets/jas-logo.png`.
-- Sub-service pages: `../../assets/jas-logo.png`.
+There are no `anon` or `PUBLIC` policies on `enquiries` or `rate_limits`, and no anon write access. The Phase 13 migration includes SQL queries that list the current RLS state. Compare those results with this table after running it. Do not add a public policy to make a browser request work.
 
-Add `.brand-logo { height: 38px; width: auto; }` to css/styles.css. A transparent-background logo works best. Keep the readable brand name beside it.
+### Email delivery limitation
 
-### Shared navigation and footer
+The current sender is `JAS Enquiries <onboarding@resend.dev>`. Resend is in test mode and the notification is sent only to the studio inbox. It is not a verified custom sending domain, and the customer does not receive an automated confirmation email. Read `DOMAIN_SWAP.md` before changing the sender.
 
-Every page has the same header and footer pattern, with paths adjusted for its folder depth. They are written directly into HTML so the website works without a server or page-fetching scripts. If you change the navigation structure or footer copy, apply that change across all 23 HTML files.
+### HTTP security headers and monitoring
 
-## Deployment
+`vercel.json` applies a Content Security Policy and the requested browser security headers to the site and API routes. The policy allows the local site, Supabase, the Supabase realtime WebSocket, the Supabase JavaScript library CDN, Google Fonts and the Unsplash hero photo. HTML has no inline script or style attributes, so the policy does not use `unsafe-inline`.
 
-First confirm your real domain. **jaysacademic.studio is an unconfirmed domain used for the canonical, Open Graph, sitemap and robots URLs.** It is not a change to the confirmed brand spelling. Search and replace that domain throughout the HTML, sitemap.xml and robots.txt before publishing on your own domain.
+The four serverless endpoints write short JSON error entries to Vercel function logs with an endpoint name, a redacted error label/message, a timestamp and a request ID. They do not log full request bodies, file contents, secrets or signed download URLs. Check **Vercel → JAS project → Logs** when investigating an error; do not paste credentials into a support request.
 
-Keep index.html at the top of the published folder. If you only deploy the website files, omit these three Markdown documents to keep internal handover notes out of public view.
+## Release steps
 
-### Option A — Netlify manual deploy (recommended for a first launch)
+1. Run `npm ci && node --test tests/*.test.js` from the repository folder.
+2. Apply `supabase/phase13-auth-rate-limits.sql` in the correct Supabase project before deploying this phase.
+3. Open and review the pull request from the existing session branch into `main`.
+4. The owner merges the pull request; Vercel then deploys from `main`.
+5. Follow `TESTING.md` on the Vercel deployment and confirm the form, sign-in, dashboard and file download flow.
 
-1. Go to netlify.com and create or sign in to your account.
-2. Choose the manual/drag-and-drop deployment option (often called Netlify Drop).
-3. Drag the **unzipped jey-academic-studio folder containing index.html** into the deploy area.
-4. Open the live address provided by Netlify and run TESTING.md against it.
-5. If using a custom domain, add it through your site's domain-management settings and follow the DNS instructions.
-6. For updates, open the same site's Deploys area and upload the revised folder. Starting a separate drop may create a new site instead of updating the existing one.
+Do not push directly to `main`. Do not publish this release before the database migration is complete.
 
-Netlify's usual static hosting behaviour recognises a root 404.html. Verify a nonexistent address after deployment. Free plans and dashboard labels can change; review the provider's current terms. No contact-form service is used.
+## Related guides
 
-### Option B — Vercel
-
-Use Vercel's Git-repository import workflow, or its deployment CLI if you are comfortable with that. Select **Other** as the framework, use the folder containing index.html as the project root, and do not add a build command. Set the output directory to the project root (`.`) if requested. Review the current static-hosting instructions in the dashboard. Vercel is not assumed to support Netlify-style folder drag-and-drop.
-
-Test routes and the 404 response after deployment; a custom 404 may need provider-specific configuration. No deployment configuration is bundled in this plain-file MVP.
-
-### Option C — GitHub Pages
-
-1. Put the contents of jey-academic-studio at the root of a GitHub repository.
-2. In repository Settings → Pages, select deployment from a branch.
-3. Select your main branch and the root folder.
-4. Wait for publication, open the supplied URL and test it.
-
-If the site is published under `/repository-name/`, include that prefix when updating canonical and sitemap URLs. Ordinary site links are relative and already work under a subfolder. Check how your provider handles the nested paths on a custom 404 response.
-
-## Backend setup
-
-Beginning with Phase 8, the quote request form on `contact.html` submits briefs directly to a Vercel serverless endpoint (`/api/submit`), which validates and stores enquiries in Supabase and sends email notifications via Resend. WhatsApp and email handoff links remain available as fallbacks.
-
-### Required accounts
-
-- **Vercel** — hosts the static frontend and serverless functions in `/api/*.js` (including nested admin functions); the top-level and `/api/admin/*.js` functions use a 30-second `maxDuration` in `vercel.json`.
-- **Supabase** — PostgreSQL database storing `enquiries` and enforcing IP-based submission rate limits via `rate_limits` and `consume_enquiry_rate_limit`.
-- **Resend** — sends transactional email notifications when a new enquiry arrives.
-
-### Environment variables
-
-Configure the following environment variables in your Vercel project settings (and in a local `.env` file if testing with Vercel CLI — never commit `.env` to Git; see `.env.example`):
-
-- `SUPABASE_URL` — your Supabase project URL (`https://<project-ref>.supabase.co`).
-- `SUPABASE_SECRET_KEY` — your Supabase service role / secret key (used server-side only by `/api/submit` and `/api/admin/signed-url`; falls back to `SUPABASE_SERVICE_ROLE_KEY`). Never expose this key in browser code.
-- `SUPABASE_ANON_KEY` — your Supabase public anon/publishable key (used browser-side for `/admin` authentication with RLS enabled; falls back to `SUPABASE_PUBLISHABLE_KEY`).
-- `RESEND_API_KEY` — your Resend API key (`re_...`).
-
-### Database setup (Supabase SQL)
-
-In the Supabase Dashboard, open **SQL Editor → New query** and run the Phase 8 schema script to create:
-
-1. The `public.enquiries` table (`id`, `created_at`, `name`, `email`, `phone`, `level`, `service`, `title`, `description`, `length`, `deadline`, `existing_draft`, `preferred_contact`, `notes`, `status`, `user_agent`, `ip_hash`).
-2. The `public.rate_limits` table and `public.consume_enquiry_rate_limit(p_ip_hash text)` function returning `(allowed boolean, retry_after integer)`.
-3. Permissions revoked from `anon` and `authenticated` and granted only to `service_role`.
-
-### File uploads
-
-Phase 9 supports optional attachments through `/api/submit` using multipart/form-data. JSON-only enquiries still work. File bytes pass through the server; the browser never uploads directly to Supabase. No new dependencies or environment variables are needed. Node's built-in Web Request/FormData parser requires Node 20+ (use a currently supported Vercel Node runtime, e.g. Node 22).
-
-**Before merging**, run [`supabase/phase9-file-uploads.sql`](supabase/phase9-file-uploads.sql) in Supabase SQL Editor:
-
-```sql
-ALTER TABLE public.enquiries
-  ADD COLUMN IF NOT EXISTS file_paths jsonb DEFAULT NULL;
-```
-
-- **Bucket:** `enquiry-files`, private (**Public must remain OFF**). Do not add public/anon/authenticated insert or read policies. Only the backend uses the secret/service-role key. Confirm existing Storage policies do not grant these roles access to this bucket. RLS/table permissions from Phase 8 are unchanged.
-- **Limits:** max 3 files; original per-file ceiling 5 MB, but the **combined total is limited to 4,000,000 bytes (4 MB)**, as approved by the owner. The effective single-file limit is therefore also 4 MB. This leaves room below Vercel's 4.5 MB request-body cap. The complete request is bounded to 4,064,000 bytes. Larger requests may be rejected by Vercel before our function runs; use WhatsApp/email instead.
-- **Types:** PDF, DOC, DOCX, PPT, PPTX, JPG/JPEG, PNG, ZIP. Both the filename extension and declared MIME type must match on the server (ZIP accepts `application/zip` and `application/x-zip-compressed`). Empty files are rejected. This is not virus scanning or verification of the actual binary format; only open trusted files and do not upload patient-identifying information. Browsers that supply an empty/generic MIME type will be rejected; use the fallback instead.
-- **Paths:** `enquiries/<server-generated-enquiry-UUID>/<server-generated-file-UUID>-<sanitized-name>`. Original filenames are sanitized and length-limited. Metadata in `enquiries.file_paths` is an array of `{path, name, size, type}`; no file bytes or signed URLs are stored in the table.
-- **Downloads:** owner notification emails contain signed links expiring after 604,800 seconds (7 days). The bucket is never made public. Anyone holding a signed URL can use it until expiry; do not forward links. Supabase's owner dashboard can download files after email links expire. No admin download UI is included in this phase.
-- **Failure handling:** validation returns `400` before any database/storage writes. The existing honeypot and rate limit still apply. The enquiry is saved before upload attempts. Failed uploads/metadata saves return `200` with a warning displayed in the confirmation panel and owner email, and fallbacks remain available. Metadata failures trigger best-effort file removal. Signing failures are identified in the owner email; files stay recorded privately. External Supabase calls have short timeouts and a shared budget; Resend also has a timeout. There is no automatic retry that could duplicate a saved enquiry.
-- **Retention:** keep attachments only as long as needed for agreed work; delete on request. No automatic retention deletion job is implemented.
-
-**View/download/delete:** Supabase Dashboard → **Storage → enquiry-files → enquiries → [full enquiry UUID]**. Match that UUID to the row in **Table Editor → enquiries**. Select an object to download or delete it using dashboard actions. After deleting, remove its metadata entry from `file_paths` (or set the column to `NULL` when deleting all attachments). Existing signed links stop working when the corresponding object is deleted. If a request times out or cleanup fails, check the enquiry's folder for unreferenced files and remove them manually. If a timed-out metadata update actually completed before cleanup, clear any stale metadata pointing to deleted objects.
-
-**Phase 9 live checks** (after SQL + merge + successful Vercel deployment):
-
-1. Open `https://jas-olive.vercel.app/contact.html`. Attach a small PDF and PNG, complete the required fields, send. Expect selected filenames/sizes and removal controls, **Uploading files…**, then a confirmation with a reference.
-2. In Supabase, verify the row's `file_paths` metadata and matching private Storage objects. In the owner inbox / Resend Emails, open each signed download link. Confirm expiry is configured at 7 days and the email still has the client's Reply-To.
-3. Remove a selected file and confirm it is absent from the sent request/metadata. Try four files, a `.txt` file, an empty file, and files totalling over 4 MB: expect an immediate error and no request until corrected. The WhatsApp fallback remains usable.
-4. Submit without files. Browser DevTools → Network should show JSON, HTTP `200`, and the existing success flow; Supabase `file_paths` should be `NULL`.
-5. Confirm **Public OFF** and no public access policies. An unsigned `/storage/v1/object/public/enquiry-files/<path>` URL must not download the file. Inspect DevTools Network: uploads only go to `/api/submit`, and no service-role key appears in browser code or requests.
-6. Open `https://jas-olive.vercel.app/privacy.html` and verify the storage/retention note. If submission fails, inspect `/api/submit`'s status/response in DevTools and Vercel Function logs. For `500`, check the SQL migration, env var names, table grants, and bucket ID. For `400`, check fields, extension/MIME and size. For `429`, wait for the rate-limit period; do not repeatedly retry. For a saved-enquiry attachment warning, keep the reference and send missing files via WhatsApp/email instead of resubmitting the enquiry.
-
-**Maintainer regression tests:** `npm ci && node --test tests/*.test.js`. Tests use built-in Node tools and mocked Supabase/Resend responses; they do not validate actual production credentials, deployed Storage policies, or email delivery.
-
-### Admin authentication (Phase 10)
-
-Phase 10 adds a protected studio-owner sign-in flow at `/admin/login.html` and a protected dashboard shell at `/admin/` (`/admin/index.html`) using Supabase Auth with the public anon/publishable key.
-
-- **SQL setup:** Run [`supabase/phase10-admin-auth.sql`](supabase/phase10-admin-auth.sql) in the Supabase SQL Editor to enable Row Level Security (RLS) on `public.enquiries` and `public.rate_limits`, grant `authenticated` `SELECT` and column-restricted `UPDATE (status, notes, file_paths)` on `public.enquiries` (and `SELECT` on `public.rate_limits`), and keep `anon` blocked while preserving `service_role` access for backend functions.
-- **Client configuration:** `js/supabase-client.js` reads `window.JAS_CONFIG` (`js/config.js`) or fetches `/api/config`, which exposes only `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or `SUPABASE_PUBLISHABLE_KEY`) — never the secret/service-role key.
-- **Rate limiting:** `js/admin-auth.js` enforces a 15-minute client-side lockout in `localStorage` after 5 consecutive failed sign-in attempts within 15 minutes.
-
-### Read-only enquiry dashboard (Phase 11)
-
-`/admin/` and `/admin/index.html` show the owner all RLS-visible enquiries, counts, combinable filters, search, sorting, and a read-only detail drawer. Lists are loaded directly with the browser Supabase client and the authenticated session; no public read endpoint or new SQL is used. Desktop shows a table, while screens below 720px use enquiry cards. Results are displayed in batches of 50, with a load-more button.
-
-Private attachments are downloaded through `/api/admin/signed-url` (source file: `api/admin/signed-url.js`). That server-side function verifies the access token with Supabase Auth, requires the owner email, confirms the path is still listed in the enquiry's `file_paths`, and creates a private Storage URL that expires after 60 seconds. It uses `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) server-side only; the browser never receives the service-role key or creates signed URLs.
-
-**Phase 11 live checks** (after deployment): open `https://jas-olive.vercel.app/admin/login.html`, sign in as the studio owner, and confirm `/admin/` shows enquiry counts and rows. Search/filter a known record, open it, and confirm its fields and attachments. Use Download and confirm the file arrives; in DevTools Network, the signed-url request should be authenticated and the returned link should not appear in console logs. At a phone width, confirm cards and a full-screen detail view. Test the no-data state only when the table is empty. A failed enquiry read displays an RLS/connection message with retry and logout controls.
-
-### Admin actions (Phase 12)
-
-The dashboard is no longer read-only. The owner can change an enquiry's status (`new` → `quoted` → `in_progress` → `delivered` → `paid` → `archived`) from a dropdown in the detail panel or inline on each table row / mobile card, edit internal notes in the detail panel (saved via the Save button or on blur, with a “Saving…”/“Saved” state), export the **currently filtered/searched** list as `jas-enquiries-YYYY-MM-DD.csv` (UTF-8 BOM, escaped fields, client-side only), and bulk-update the status of checkbox-selected enquiries from the bulk actions bar (desktop “select all” covers all filtered enquiries; mobile has a Select all button).
-
-All status/notes writes go directly from the browser to Supabase with the anon key and the owner's session; the Phase 10 RLS policies and column-restricted `UPDATE (status, notes, file_paths)` grant enforce authorisation. No new endpoint, SQL, environment variable or dependency was added, and `/api/admin/signed-url` is unchanged. Updates are optimistic: the UI changes immediately, shows a subtle loading state on the affected row, and rolls back with an error toast if Supabase rejects the write. Success/error feedback uses toast notifications; bulk status changes and clearing notes to empty ask for confirmation first (single status changes do not).
-
-**Phase 12 live checks** (after deployment): sign in at `https://jas-olive.vercel.app/admin/login.html`, open `/admin/`, change a status inline and in the detail panel, and refresh to confirm both persist and the counts update. Edit notes, save, refresh and confirm they persist; clear them and confirm the confirmation dialog appears. Filter/search to a subset, use **Export CSV**, and open the file in Excel/Google Sheets to confirm only the filtered rows appear and commas/quotes display correctly. Select several enquiries, use **Mark as… → Apply**, confirm the dialog, and verify all selected rows changed after refresh. Log out and confirm you are returned to the login page.
-
-### Test flow
-
-1. Deploy the branch to Vercel (or merge the pull request into `main`).
-2. Open `/contact.html` on the deployed Vercel site.
-3. Fill in all required fields on the **Or send a brief** form and click **Send brief**.
-4. Verify the button shows **Sending…** and the form is replaced by the confirmation panel:
-   *"Brief received. Thanks [name]. You'll hear back at [preferred_contact] typically within a few hours. Reference: [8-char reference]."*
-5. In **Supabase → Table Editor → `enquiries`**, confirm the new row appears with `status = 'new'`.
-6. In **jessenyarko192@gmail.com** (and **Resend → Emails**), confirm the notification email arrived from `JAS Enquiries <onboarding@resend.dev>` with `Reply-To` set to the client's email address.
-
-### Known limitation — Resend test mode
-
-No custom sending domain is verified yet. While Resend is in test mode:
-
-- Emails can **only** be sent from `JAS Enquiries <onboarding@resend.dev>` **to** `jessenyarko192@gmail.com`.
-- Automated confirmation emails to clients cannot be sent until the production domain (`jeyacademichub.com`) is purchased and verified in Resend.
-- If Resend fails or hits a quota limit after Supabase has saved the enquiry, `/api/submit` logs a warning and still returns HTTP `200` so no student enquiry is ever lost.
-
-## Testing before launch
-
-See **TESTING.md** for the owner checklist and the build-verification record. Real Android/iPhone handoffs and the final deployed site's behaviour still need your testing.
-
-## Known limits
-
-- The admin dashboard supports status and internal-notes editing, filtered CSV export and bulk status updates (Phase 12); actions are owner-only via Supabase RLS. Analytics are not implemented.
-- Enquiries and optional attachments submit to the backend; WhatsApp/email handoffs are alternatives and require sending in the chosen app. Selecting Call records a callback preference; it does not place a call automatically.
-- Attachments are capped at 3 files and 4 MB combined; larger files must be shared via WhatsApp/email. No malware scanning or automatic retention cleanup is provided.
-- No payment processing. Payment terms are agreed in the quote.
-- Long mailto messages may exceed an email app's limits. Use WhatsApp or direct email if that happens.
-- Google Fonts and the homepage photo are remote resources. System-font and navy-background fallbacks remain usable if those resources fail.
-- Prices need JavaScript. Service prose, navigation links, contact links and native FAQ accordions remain readable without it; the mobile toggle needs JavaScript.
-- The favicon is SVG. Some Apple devices may not use an SVG touch icon; add a suitable PNG touch icon later if needed.
-- Local files cannot test a host's HTTP 404 handling. Verify the actual hosted response before launch.
-- The privacy notice is an explicitly labelled draft, not legal advice or a compliance certification.
-
-## Support
-
-For technical launch questions, contact the person maintaining the site. For business questions, contact Jesse Nyarko at **jessenyarko192@gmail.com** or WhatsApp **0534423173**.
+- `HANDOVER.md` — what is built, pending and intentionally not included.
+- `TESTING.md` — copy-ready checks for the public site, form, admin and security.
+- `MONTHLY_CHECKLIST.md` — routine care for the owner.
+- `DOMAIN_SWAP.md` — steps for a future move to `jeyacademichub.com` and verified Resend sending.

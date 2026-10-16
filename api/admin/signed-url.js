@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { logApiError } from '../../lib/api-error-logger.js';
 
 const OWNER_EMAIL = 'jessenyarko192@gmail.com';
 const BUCKET_NAME = 'enquiry-files';
@@ -14,6 +15,11 @@ function respond(res, status, body) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   return res.status(status).json(body);
+}
+
+function fail(res, status, body, errorCode) {
+  logApiError('admin/signed-url', errorCode);
+  return respond(res, status, body);
 }
 
 function readBearerToken(req) {
@@ -79,23 +85,24 @@ function createAdminClient(url, secretKey) {
  */
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
+    logApiError('admin/signed-url', 'method_not_allowed');
     res.setHeader('Allow', 'POST');
     return respond(res, 405, { error: 'Method not allowed. Use POST.' });
   }
 
   const token = readBearerToken(req);
   if (!token) {
-    return respond(res, 401, { error: 'Sign in to download this attachment.' });
+    return fail(res, 401, { error: 'Sign in to download this attachment.' }, 'missing_or_malformed_bearer_token');
   }
 
   const body = readJsonBody(req);
   if (!body) {
-    return respond(res, 400, { error: 'Provide a valid JSON request body.' });
+    return fail(res, 400, { error: 'Provide a valid JSON request body.' }, 'invalid_request_body');
   }
 
   const requested = validateAttachmentPath(body.path);
   if (!requested) {
-    return respond(res, 400, { error: 'The attachment path is invalid.' });
+    return fail(res, 400, { error: 'The attachment path is invalid.' }, 'invalid_attachment_path');
   }
 
   const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
@@ -105,7 +112,7 @@ export default async function handler(req, res) {
     ''
   ).trim();
   if (!supabaseUrl || !serviceRoleKey) {
-    return respond(res, 500, { error: 'Private downloads are not configured.' });
+    return fail(res, 500, { error: 'Private downloads are not configured.' }, 'private_downloads_not_configured');
   }
 
   try {
@@ -116,16 +123,16 @@ export default async function handler(req, res) {
     if (authError) {
       const authStatus = Number(authError.status);
       const status = authStatus >= 500 ? 500 : 401;
-      return respond(res, status, {
+      return fail(res, status, {
         error: status === 401 ? 'Your sign-in session is invalid or has expired.' : 'Could not verify your sign-in session.'
-      });
+      }, status === 401 ? 'invalid_or_expired_session' : 'session_verification_unavailable');
     }
     const user = authData?.user;
     if (!user) {
-      return respond(res, 401, { error: 'Your sign-in session is invalid or has expired.' });
+      return fail(res, 401, { error: 'Your sign-in session is invalid or has expired.' }, 'missing_verified_user');
     }
     if (String(user.email || '').trim().toLowerCase() !== OWNER_EMAIL) {
-      return respond(res, 403, { error: 'Only the studio owner can download enquiry attachments.' });
+      return fail(res, 403, { error: 'Only the studio owner can download enquiry attachments.' }, 'non_owner_access_denied');
     }
 
     // Verify this exact object path is still attached to the referenced enquiry.
@@ -135,12 +142,12 @@ export default async function handler(req, res) {
       .eq('id', requested.enquiryId)
       .maybeSingle();
     if (enquiryError) {
-      return respond(res, 500, { error: 'Could not verify the attachment.' });
+      return fail(res, 500, { error: 'Could not verify the attachment.' }, 'attachment_lookup_failed');
     }
     const attachments = Array.isArray(enquiry?.file_paths) ? enquiry.file_paths : [];
     const attachment = attachments.find(file => file && file.path === requested.path);
     if (!attachment) {
-      return respond(res, 404, { error: 'This attachment was not found.' });
+      return fail(res, 404, { error: 'This attachment was not found.' }, 'attachment_not_found');
     }
 
     const downloadName = safeDownloadName(attachment.name);
@@ -152,14 +159,15 @@ export default async function handler(req, res) {
     if (signingError || typeof signedData?.signedUrl !== 'string' || !signedData.signedUrl) {
       const storageStatus = Number(signingError?.statusCode || signingError?.status);
       if (storageStatus === 404) {
-        return respond(res, 404, { error: 'This attachment was not found.' });
+        return fail(res, 404, { error: 'This attachment was not found.' }, 'attachment_not_found_in_storage');
       }
-      return respond(res, 500, { error: 'Could not prepare the attachment download.' });
+      return fail(res, 500, { error: 'Could not prepare the attachment download.' }, 'signed_url_creation_failed');
     }
 
     // Never log or cache the signed URL; possession of it grants temporary file access.
     return respond(res, 200, { url: signedData.signedUrl });
-  } catch {
+  } catch (error) {
+    logApiError('admin/signed-url', error);
     return respond(res, 500, { error: 'Could not prepare the attachment download.' });
   }
 }

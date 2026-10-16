@@ -1,194 +1,209 @@
-# Pre-launch testing checklist
+# Test checklist — Jey's Academic Studio
 
-Use this list on your **actual deployed website**, not only the preview. Keep the boxes unchecked until you personally complete them. The automated checks performed during this build are recorded separately at the end.
+Use this checklist before the Phase 13 release and again after the owner merges the pull request into `main`. The live site is https://jas-olive.vercel.app/. A Vercel Preview URL is better for testing a new release, but it normally uses the same Supabase project unless Preview environment variables point elsewhere.
 
-## Open every page
+**Important:** the contact-form test creates a real database enquiry and sends a real owner notification. Use your own harmless test details and remove the test enquiry/file afterward under the studio's agreed retention process. Do not enter patient-identifying details, bank details, passwords or real client information into a test.
 
-- [ ] index.html loads.
-- [ ] services.html loads.
-- [ ] services/assignments-presentations.html loads.
-- [ ] services/research-support.html loads.
-- [ ] services/bsn-case-studies.html loads.
-- [ ] services/editing-formatting.html loads.
-- [ ] services/assignments-presentations/word-assignments.html loads.
-- [ ] services/assignments-presentations/powerpoint.html loads.
-- [ ] services/research-support/diagnostic-review.html loads.
-- [ ] services/research-support/technical-support.html loads.
-- [ ] services/research-support/end-to-end.html loads.
-- [ ] services/bsn-case-studies/comprehensive.html loads.
-- [ ] services/bsn-case-studies/complex.html loads.
-- [ ] services/editing-formatting/light.html loads.
-- [ ] services/editing-formatting/moderate.html loads.
-- [ ] services/editing-formatting/substantial.html loads.
-- [ ] pricing.html loads.
-- [ ] how-it-works.html loads.
-- [ ] about.html loads.
-- [ ] faq.html loads.
-- [ ] contact.html loads.
-- [ ] privacy.html loads.
-- [ ] 404.html loads directly.
-- [ ] A made-up top-level URL displays the 404 page and sends an HTTP 404 response.
-- [ ] A made-up nested URL also displays a styled 404 page whose links work.
+## 1. Run the automated tests
 
-Local file opening does not test a hosting provider's 404 handling. The 404 page is prepared for a site hosted at the domain root; if you publish under a repository subfolder, check the host's 404 setup and adjust the hosted base/asset paths if needed.
+From the repository folder, run:
 
-## Test navigation
+```sh
+npm ci
+node --test tests/*.test.js
+```
 
-- [ ] Every header nav link goes to the correct page, including from nested pages.
-- [ ] The active nav item is highlighted. Services stays highlighted on all category and sub-service pages.
-- [ ] Privacy and 404 do not incorrectly highlight an unrelated nav item.
-- [ ] The hamburger menu opens and closes on a phone-width window.
-- [ ] The menu button announces its expanded/collapsed state.
-- [ ] Escape closes the menu and returns focus to the menu button.
-- [ ] Breadcrumbs on category and sub-service pages work at every linked level.
-- [ ] Footer links work on every page.
-- [ ] The header Request a Quote button goes to contact.html on every page.
-- [ ] The floating WhatsApp button appears on every page.
+All tests should finish with `# fail 0`. They use mocked Supabase and Resend responses. They do not contact production, apply SQL, verify Vercel headers, or send an email.
 
-There is no separate header WhatsApp link in the specified design. The header quote button opens Contact, where WhatsApp is available. Test the actual CTA, footer and floating WhatsApp links instead.
+## 2. Check the deployed site and security headers
 
-## Test contact
+Open a terminal and copy these commands. They only read the site; they do not submit an enquiry:
 
-- [ ] The floating WhatsApp button opens the correct number with its prefilled quote message.
-- [ ] WhatsApp links open in a new tab/app as appropriate for your device.
-- [ ] The Contact WhatsApp card opens the correct number.
-- [ ] Each service-specific Discuss/Request quote link has an appropriate prefilled message.
-- [ ] Both footer telephone links open the dialler on mobile with the correct number.
-- [ ] The footer email link opens your email app at the correct address.
-- [ ] CTA WhatsApp, call and email buttons work on root and nested pages.
+```sh
+curl -sSI https://jas-olive.vercel.app/
+```
 
-## Test the enquiry form
+Expect an HTTP success response and these headers: `content-security-policy`, `x-content-type-options: nosniff`, `x-frame-options: DENY`, `referrer-policy: strict-origin-when-cross-origin`, `permissions-policy: geolocation=(), microphone=(), camera=()`, and `strict-transport-security: max-age=31536000`.
 
-- [ ] Empty submit shows errors under all 10 required field groups.
-- [ ] The first invalid field receives focus.
-- [ ] A whitespace-only name is rejected.
-- [ ] An invalid email shows “Please enter a valid email address.”
-- [ ] An invalid phone number shows the phone error.
-- [ ] A short description (less than 20 characters) shows the description error.
-- [ ] Missing level, service, deadline, draft choice, contact preference and consent all show their specified errors.
-- [ ] A valid brief shows the panel with two sending options.
-- [ ] The panel clearly says “Your brief is ready. Choose how to send it — nothing has been sent yet.”
-- [ ] Preparing the brief does not open an app automatically or move you to another page.
-- [ ] Send via WhatsApp opens the app/site with all message fields filled correctly.
-- [ ] Send via Email opens the email app with the subject and the same message content.
-- [ ] Optional blank title, length and notes appear as “—”.
-- [ ] WhatsApp and email messages have a blank line between every field for readability.
-- [ ] Choosing Call records that preference in the brief; you can still send it using WhatsApp or email.
-- [ ] Changing any field after preparation hides the old panel so you cannot accidentally send stale details.
-- [ ] Try a long brief on your own email app. If it cannot open, use WhatsApp or direct email.
-- [ ] No enquiry data appears in localStorage or sessionStorage (DevTools → Application → Storage).
-- [ ] Clicking Prepare my brief makes no network request (DevTools → Network; clear the list after page resources finish loading).
-- [ ] With JavaScript disabled, the preparation button is disabled and the direct contact alternatives remain available.
+Check the main routes and the removed route:
 
-Do not send real patient-identifying data, bank details or other sensitive information in your test brief. Preparing a brief does not send it. To complete an end-to-end test, deliberately send a harmless test message from the app and confirm receipt yourself.
+```sh
+for path in / /contact.html /jas-hub/login.html /jas-hub/ /admin/; do
+  printf '%-24s ' "$path"
+  curl -sS -o /dev/null -w '%{http_code}\n' "https://jas-olive.vercel.app$path"
+done
+```
 
-## Test on mobile
+Expected results: `/`, `/contact.html`, `/jas-hub/login.html` and `/jas-hub/` return `200`; `/admin/` returns `404`. The former path must not redirect to the new one. If you also want to check the no-slash address, run:
 
-- [ ] Open the deployed website on a real Android phone.
-- [ ] Open it on a real iPhone.
-- [ ] Text is readable without zooming.
-- [ ] No page-level horizontal scrolling; any wide price table scrolls inside its own box.
-- [ ] Buttons and the header are easy to tap.
-- [ ] The floating WhatsApp button does not prevent access to important controls.
-- [ ] The menu works in portrait and landscape.
-- [ ] Form fields, especially the date picker and selects, work on your phone.
-- [ ] The keyboard does not make required form controls unreachable.
-- [ ] Telephone, WhatsApp and email app handoffs work on both phones.
+```sh
+curl -sS -o /dev/null -w '%{http_code}\n' https://jas-olive.vercel.app/admin
+```
 
-## Test accessibility
+Expect `404`.
 
-- [ ] Tab through each page with the keyboard and reach every link, button and form field.
-- [ ] Gold focus rings are visible.
-- [ ] The skip-to-content link appears when first tabbing into the page.
-- [ ] Pressing Enter on the skip link moves focus to the main content.
-- [ ] FAQ answers open and close with Enter/Space on their summaries.
-- [ ] Check the form labels and errors with a screen reader if possible.
-- [ ] Every actual image has suitable alt text; decorative SVGs are hidden from assistive technology.
-- [ ] Colour contrast is readable, including helper and error text.
-- [ ] With your device's reduced-motion setting enabled, pulsing/animated effects stop.
-- [ ] Zoom the browser to 200% and verify content stays usable.
+The dashboard HTML is a static file, so its initial HTTP request may return `200` even when no one is signed in. The page must then send an unauthenticated browser to the sign-in page, and Supabase RLS must refuse dashboard data. A `200` from `curl` alone does not prove a user is signed in.
 
-Automated accessibility tests help catch common issues, but they are not a complete accessibility audit or certification.
+Check that the API is present without changing data:
 
-## Content and pricing
+```sh
+curl -sS -o /dev/null -w 'submit GET: %{http_code}\n' https://jas-olive.vercel.app/api/submit
+curl -sS -o /dev/null -w 'rate-limit GET: %{http_code}\n' https://jas-olive.vercel.app/api/auth/check-rate-limit
+```
 
-- [ ] All 30 supplied price rows match what you charge.
-- [ ] Prices use GH₵ throughout.
-- [ ] Confirmed, provisional, target and individual-quote labels are correct.
-- [ ] The complex BSN range is marked provisional and individually quoted.
-- [ ] A concise pricing note appears in the hero of every page displaying price tables or cards; repeated body/footer disclaimers are absent.
-- [ ] Urgency, payment and revision wording are approved.
-- [ ] No invented testimonials, credentials, awards, statistics or outcome guarantees appear.
-- [ ] No assessed-work ghostwriting is implied.
-- [ ] 24/7 availability and typical reply-time wording are accurate for your service.
-- [ ] Approve the About bio and remove the pre-launch wording note once approved.
-- [ ] No unfinished sample copy remains. The domain and privacy review notices are intentional launch tasks, not claims of readiness.
+Both should return `405` (these endpoints accept POST only). Do not paste the output of `/api/config` into a public message; it intentionally contains the public browser key.
 
-## Deployment-ready
+## 3. Check the public site (Phases 1–7)
 
-- [ ] Replace jaysacademic.studio with your real domain in canonical and Open Graph URLs.
-- [ ] sitemap.xml uses your real domain and includes the 22 main pages, excluding 404.html.
-- [ ] robots.txt points to the correct live sitemap URL.
-- [ ] The favicon appears on your browsers. If needed, add a PNG Apple touch icon for iOS.
-- [ ] The homepage photo loads, is suitable and can be used under its applicable licence/terms.
-- [ ] The privacy notice has been reviewed against Ghanaian data-protection requirements and actual studio practices.
-- [ ] The site works on HTTPS.
-- [ ] All app handoffs have been tested on real phones.
-- [ ] Keep HANDOVER.md and TESTING.md out of the published folder if these notes should not be public.
-- [ ] After the final deploy, refresh the live site and repeat key checks to avoid relying on an older cached version.
+Open https://jas-olive.vercel.app/ and visit each of these pages:
 
-## Build verification record — 13 October 2026
+- https://jas-olive.vercel.app/services.html
+- https://jas-olive.vercel.app/pricing.html
+- https://jas-olive.vercel.app/how-it-works.html
+- https://jas-olive.vercel.app/about.html
+- https://jas-olive.vercel.app/faq.html
+- https://jas-olive.vercel.app/contact.html
+- https://jas-olive.vercel.app/privacy.html
 
-The following were tested using automated Chromium browser checks and file inspection, not merely assumed:
+For each page, check that:
 
-- [x] All 23 HTML files opened through a local preview server and directly through file://.
-- [x] All 23 pages were checked at **320, 375, 640, 768, 880, 960 and 1440px** preview widths, with no page-level horizontal overflow.
-- [x] Direct file opening was additionally checked at 375 and 1440px.
-- [x] Every static internal link, resource path and anchor resolved to an existing target.
-- [x] Every page had one H1, a valid heading sequence, language, encoding, viewport and unique metadata.
-- [x] All 30 price rows and their statuses matched the supplied specification; all tables/cards rendered from window.JAS_DATA.
-- [x] All four badge colour combinations matched the specified values.
-- [x] The mobile menu opened/closed by button; Escape closed it and restored focus.
-- [x] The first keyboard Tab reached the homepage skip link; Enter moved focus to main.
-- [x] Reduced-motion emulation disabled the availability pulse animation.
-- [x] All 11 current FAQ accordions were present; keyboard opening/closing was exercised.
-- [x] Empty form submission produced all 10 required error groups and focused the first invalid field.
-- [x] Invalid email, phone and short-description errors matched the required wording.
-- [x] Valid preparation showed the honest panel; both encoded messages contained all 12 message fields and were identical.
-- [x] Form preparation made zero network requests, opened no new window and created zero local/session storage entries.
-- [x] Editing a prepared form removed stale sending links; optional blanks used em dashes.
-- [x] The form also prepared successfully in direct file mode.
-- [x] With JavaScript disabled, the form's preparation button remained disabled, preventing accidental native submission.
-- [x] The floating WhatsApp button was visible on all pages at every tested width.
-- [x] Google Fonts and the exact Unsplash homepage image loaded during preview checks.
-- [x] No JavaScript exceptions, normal-page console errors or failed resource requests were recorded in the final functional test run.
-- [x] The preview returned the custom, styled 404 page for a nested missing URL, with working root links. The browser's expected HTTP 404 report is not a JavaScript error.
-- [x] Sitemap: 22 valid main-page entries dated 2026-10-13; robots.txt points to the specified sitemap URL.
-- [x] Automated axe-core checks for WCAG 2 A/AA and WCAG 2.1 AA reported **zero violations on all 23 pages at desktop and mobile widths**, and in the contact form's error/ready states after a contrast fix.
-- [x] Site content was checked for invented credentials/testimonials/guarantees, wrong cedis symbols and unfinished sample copy.
+- [ ] It loads without a blank screen or browser security warning.
+- [ ] Navigation links open the expected pages and the logo goes to the home page.
+- [ ] Prices use **GH₵** and match the approved current price list. Do not edit prices as part of a security test.
+- [ ] The mobile navigation opens and closes; keyboard users can reach its controls.
+- [ ] The page fits a phone screen without unwanted sideways scrolling.
+- [ ] The hero image and Google Font load, or the existing fallback is used if a remote service is unavailable.
+- [ ] The floating WhatsApp link opens the intended WhatsApp chat. Phone and email links open the device's expected app.
+- [ ] The privacy notice is still marked as a draft until it has been reviewed and approved.
 
-Accessibility and browser-test tooling were used only in the build workspace. They are **not included or loaded by the delivered website**; no framework, package manager or build step is needed to use it.
+Check a normal missing page and a nested missing page:
 
-### Still requires the owner
+```sh
+curl -sS -o /dev/null -w 'missing top-level page: %{http_code}\n' https://jas-olive.vercel.app/not-a-real-page
+curl -sS -o /dev/null -w 'missing nested page: %{http_code}\n' https://jas-olive.vercel.app/not-a-real-folder/not-a-real-page
+```
 
-- [ ] Actual Android and iPhone app handoffs and deliberate test-message receipt.
-- [ ] Final deployed-domain routing, nested 404 behaviour, HTTPS and browser favicon checks.
-- [ ] Privacy/legal review and final business-policy/bio approval.
-- [ ] A manual screen-reader and zoom review if possible.
+Both should return HTTP `404`. In a browser, confirm the custom 404 page has working links back to the home and services pages.
 
-These remaining checks have not been marked complete or represented as completed real-device testing.
+## 4. Test the Phase 8 enquiry form end-to-end
 
-## Readability update
+This is a real submission. Use a test name, an email address you control, a phone number you can recognise, and a harmless description. Do not include client or sensitive information.
 
-- [x] Smaller navigation, footer, badges, form labels/helper text, and table text were increased slightly without changing the main heading sizes.
-- [x] All 23 pages were rechecked for layout overflow at the seven preview widths after the font update.
-- [x] WhatsApp and email brief messages were verified identical, with a blank line between the heading and every one of the 12 fields.
-- [x] The refreshed self-contained preview was tested, including message spacing, navigation and mobile menu.
+1. Open https://jas-olive.vercel.app/contact.html.
+2. Complete every required field. Use a valid date, choose an existing-draft answer and a contact preference, and tick the consent box.
+3. First leave one required field blank and choose **Send brief**. The form should show a clear field error and should not create an enquiry.
+4. Complete the required fields and send the harmless test brief without a file. The page should show its success message and reference.
+5. In Supabase, open **Table Editor → `enquiries`**. Confirm one new row exists with `status = new` and the details you entered.
+6. Check the studio inbox and **Resend → Emails** for the notification. The current sender is `JAS Enquiries <onboarding@resend.dev>` and the recipient is the studio inbox. The client's address should be the Reply-To.
+7. Sign in at the owner page and confirm the enquiry appears in the dashboard. Remove or archive the test record according to the studio's approved process.
 
-## Hero pricing notes and FAQ update
+If an HTTP error appears, check **Vercel → JAS project → Logs** using the time of your test and the request ID shown in the structured error entry. Do not retry repeatedly: a saved enquiry may already exist even if a later email or file step had a problem.
 
-- [x] All 16 relevant service/pricing heroes show one concise pricing note directly below the headline.
-- [x] Notes were verified visible before scrolling at 375×812 and 1440×1000; the lowest phone note ended above 475px.
-- [x] Repeated general pricing notice boxes and the footer pricing caveat were removed. Scope exclusions, confidentiality safeguards, price-status badges and individual-quote requirements remain.
-- [x] The FAQ now has 11 items. The authorship question was removed; unlisted-service requests receive a welcoming Yes; the grades answer emphasises striving for high-quality work and excellent results without guaranteeing outcomes.
-- [x] Revised pricing/service pages passed desktop and mobile automated accessibility checks.
+## 5. Test the Phase 9 file upload
+
+1. Open https://jas-olive.vercel.app/contact.html.
+2. Complete a harmless test brief and attach one small PDF (under 4 MB). If available, repeat with a small PNG in a separate test.
+3. Confirm the selected file name appears before sending, then send once and wait for the result.
+4. In Supabase, confirm the enquiry row has file metadata and the matching object is inside the **private** `enquiry-files` bucket.
+5. In the dashboard, open the enquiry and use its download action. Confirm the file downloads.
+6. Confirm the bucket is not public. An unauthenticated public-object URL must not expose the file.
+7. Remove the test enquiry and its test file only after confirming the retention/deletion process. There is no automatic cleanup job.
+
+The form allows no more than three files and 4 MB combined; each file must be 5 MB or smaller and use an accepted type shown on the form. A rejected file should show a clear message before it is submitted. Do not upload a real client's document for testing.
+
+## 6. Check Supabase RLS and run the Phase 13 migration
+
+Before testing the new login limiter, the owner must run `supabase/phase13-auth-rate-limits.sql` in **Supabase Dashboard → SQL Editor → New query → Run**. This migration creates the login-limit table and RPC, keeps RLS enabled, removes any `PUBLIC`/`anon` policies from `enquiries` and `rate_limits`, and replaces their authenticated policies with an owner-email check. Do not deploy the Phase 13 login change before this step is complete.
+
+After the migration, run these read-only queries in SQL Editor:
+
+```sql
+SELECT relation.relname AS table_name,
+       relation.relrowsecurity AS rls_enabled
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS schema ON schema.oid = relation.relnamespace
+WHERE schema.nspname = 'public'
+  AND relation.relname IN ('enquiries', 'rate_limits', 'auth_rate_limits')
+ORDER BY relation.relname;
+
+SELECT schemaname, tablename, policyname, roles, cmd, qual, with_check
+FROM pg_catalog.pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('enquiries', 'rate_limits', 'auth_rate_limits')
+ORDER BY tablename, policyname;
+```
+
+Expect RLS to be enabled for all three tables. Expect the three authenticated policies `enquiries_select_authenticated`, `enquiries_update_authenticated` and `rate_limits_select_authenticated`, each restricted to the approved owner email. Expect **zero policies** for `auth_rate_limits`, and no policy role named `anon` or `public` for `enquiries` or `rate_limits`. If the results differ, stop and ask the maintainer to review them; do not add a public policy.
+
+## 7. Test the Phase 10–13 sign-in and dashboard
+
+### Sign-in and privacy
+
+1. Open https://jas-olive.vercel.app/jas-hub/login.html in a private/incognito browser window.
+2. Confirm the email box is empty on load, has no placeholder, and has no owner-email hint. Type the existing owner email yourself.
+3. In browser Developer Tools → **Network**, submit once. Confirm `POST /api/auth/check-rate-limit` completes with `allowed: true` before the Supabase password sign-in request begins.
+4. Sign in using the owner's existing Supabase Auth password. Never write the password into this file or a chat message.
+5. Confirm the browser reaches https://jas-olive.vercel.app/jas-hub/ and the signed-in owner email is shown only inside the authenticated dashboard.
+6. Use **Logout**. Confirm the browser returns to the sign-in page.
+
+The client-side lockout is only a convenience. The server check must block a request even if local browser storage is cleared. Do not deliberately make repeated wrong-password attempts with the owner's real account on production; that will lock it for 15 minutes.
+
+### Safe server rate-limit test
+
+This test sends no password and does not need a Supabase user. Use a fresh email address that you control but that is not the owner's sign-in address. The address is hashed with your network's IP; the raw email is not stored in the counter table. Replace the value below before running the loop:
+
+```sh
+TEST_EMAIL='replace-with-an-email-you-control@example.com'
+for attempt in 1 2 3 4 5 6; do
+  printf 'Attempt %s: ' "$attempt"
+  curl -sS -o /dev/null -w '%{http_code}\n' \
+    -X POST https://jas-olive.vercel.app/api/auth/check-rate-limit \
+    -H 'Content-Type: application/json' \
+    --data "{\"email\":\"$TEST_EMAIL\"}"
+done
+```
+
+For a fresh email/IP pair, attempts 1–5 should return `200`; attempt 6 should return `429`. Use the same network for all six calls. Do not repeat the test with the same email until 15 minutes have passed. If the migration is missing or the database is unavailable, the endpoint should return `503`; sign-in must not proceed.
+
+### Dashboard and Phase 11–12 actions
+
+While signed in, test with a harmless test enquiry:
+
+- [ ] Enquiry counts and rows load. Search, status/service filters, sorting, date range and load-more work.
+- [ ] Open the detail panel. Confirm fields and attachments correspond to the selected row.
+- [ ] Change a status inline and in the detail panel; refresh and confirm the change remains.
+- [ ] Add a private note, save, refresh and confirm it remains. Clear a non-empty note and confirm the warning appears first.
+- [ ] Filter the list and export CSV. Open the downloaded CSV and confirm it contains only the filtered results.
+- [ ] Select more than one test row and use the bulk status action. Confirm the action before applying it and then refresh.
+- [ ] Download an attachment. In Network, verify the `/api/admin/signed-url` request is authenticated. Do not copy or share the temporary signed link.
+- [ ] Log out and confirm the dashboard content is no longer shown.
+
+## 8. Check the Phase 13 error logging and secret handling
+
+When a test produces a controlled error, open Vercel **Logs** and confirm the entry is one JSON line with `endpoint`, `error`, `timestamp` and `request_id`. Logs must not contain a full request body, password, server key, file content or signed URL. Client-visible errors should remain short and must not show a stack trace or database details.
+
+The public configuration endpoint is meant to return a project URL and public browser key only. Server-side secret keys and the email API key must never appear in browser files, DevTools page source or network responses.
+
+## 9. Phone, keyboard and content checks (all phases)
+
+- [ ] Repeat the home, service, pricing and contact checks at a narrow phone width and on a real Android/iPhone if available.
+- [ ] Use Tab, Shift+Tab, Enter and Space to navigate. Confirm visible focus, the skip link and usable form errors.
+- [ ] Zoom the browser to 200% and check the content remains usable.
+- [ ] Turn on reduced motion in the device/browser and confirm animations are reduced.
+- [ ] Confirm the supplied prices, service scope, contact numbers and availability wording are still owner-approved.
+- [ ] Confirm no unapproved testimonials, qualifications, statistics or outcome promises were introduced.
+- [ ] Confirm all currency uses **GH₵**.
+- [ ] Confirm the privacy notice remains accurate and is not described as legally approved until it has been reviewed.
+
+## 10. Release sign-off
+
+- [ ] Automated tests pass: `node --test tests/*.test.js`.
+- [ ] Supabase Phase 13 SQL has run successfully; audit query results match Section 6.
+- [ ] Vercel Preview shows the requested headers and the CSP does not block fonts, the Supabase client, the hero image or dashboard actions.
+- [ ] `/jas-hub/login.html` and `/jas-hub/` load; unauthenticated browser access redirects to sign-in.
+- [ ] The former `/admin/` route returns 404 and does not redirect.
+- [ ] Public enquiry without a file and enquiry with a small test file both work end-to-end.
+- [ ] Owner sign-in, dashboard changes, notes, CSV and private download work.
+- [ ] The owner reviewed the Preview and approves merging the pull request into `main`.
+
+No Phase 13 live-browser or production database check is claimed complete by the source-code test suite. Record each real check above only after the owner has performed it.

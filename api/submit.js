@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { logApiError } from '../lib/api-error-logger.js';
 
 // Read the raw multipart stream ourselves; JSON submissions remain supported.
 export const config = { api: { bodyParser: false } };
@@ -170,9 +171,10 @@ function getHashedIp(req) {
   return crypto.createHash('sha256').update(rawIp).digest('hex');
 }
 
-export default async function handler(req, res) {
+async function handleSubmit(req, res) {
   // 1. Enforce POST method only
   if (req.method !== 'POST') {
+    logApiError('submit', 'method_not_allowed');
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
@@ -182,12 +184,14 @@ export default async function handler(req, res) {
     ({ body, files } = await readPayload(req));
   } catch (error) {
     const message = error.isValidationError ? error.message : 'Could not read request body.';
+    logApiError('submit', 'request_body_rejected');
     return res.status(400).json({ error: message, errors: { files: message } });
   }
 
   // 3. Reject submissions with a non-empty honeypot field ("website")
   const honeypot = cleanString(body.website ?? '');
   if (honeypot.length > 0) {
+    logApiError('submit', 'honeypot_submission_rejected');
     return res.status(400).json({
       error: 'Validation failed.',
       errors: { website: 'Spam submission rejected.' }
@@ -285,6 +289,7 @@ export default async function handler(req, res) {
   }
 
   if (Object.keys(errors).length > 0) {
+    logApiError('submit', 'field_validation_failed');
     return res.status(400).json({
       error: 'Validation failed.',
       errors
@@ -297,7 +302,7 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseSecretKey) {
-    console.error('Missing SUPABASE_URL or SUPABASE_SECRET_KEY environment variable.');
+    logApiError('submit', 'server_database_configuration_missing');
     return res.status(500).json({ error: 'Server configuration error.' });
   }
 
@@ -325,12 +330,13 @@ export default async function handler(req, res) {
   );
 
   if (rateError) {
-    console.error('Rate limit check failed:', rateError.message);
+    logApiError('submit', 'enquiry_rate_limit_check_failed');
     return res.status(500).json({ error: 'Could not verify rate limit.' });
   }
 
   const rateRow = Array.isArray(rateData) ? rateData[0] : rateData;
   if (rateRow && rateRow.allowed === false) {
+    logApiError('submit', 'enquiry_rate_limit_exceeded');
     const retryAfter = Number(rateRow.retry_after) || 60;
     res.setHeader('Retry-After', String(retryAfter));
     return res.status(429).json({
@@ -374,7 +380,7 @@ export default async function handler(req, res) {
     .single();
 
   if (insertError || !inserted) {
-    console.error('Supabase insert error:', insertError?.message || 'No row returned');
+    logApiError('submit', 'enquiry_insert_failed');
     return res.status(500).json({ error: 'Failed to save enquiry.' });
   }
 
@@ -395,8 +401,8 @@ export default async function handler(req, res) {
       if (error) throw error;
       return { path, name, size: file.size, type: file.type };
     } catch {
-      // Only log the stage/reference, never a URL/token or user-supplied filename.
-      console.warn('Attachment upload failed for enquiry', savedId);
+      // Log only a fixed stage label; do not log a file name, file content or URL.
+      logApiError('submit', 'attachment_upload_failed');
       return null;
     }
   }));
@@ -410,13 +416,13 @@ export default async function handler(req, res) {
         .update({ file_paths: uploadedFiles }).eq('id', savedId).select('id').single();
       if (error || !updated) throw error || new Error('No row updated');
     } catch {
-      console.warn('Attachment metadata save failed for enquiry', savedId);
+      logApiError('submit', 'attachment_metadata_save_failed');
       // Best-effort removal prevents files without a database reference accumulating.
       try {
         const { error } = await bucket.remove(uploadedFiles.map(file => file.path));
-        if (error) console.warn('Attachment cleanup needed for enquiry', savedId);
+        if (error) logApiError('submit', 'attachment_cleanup_failed');
       } catch {
-        console.warn('Attachment cleanup needed for enquiry', savedId);
+        logApiError('submit', 'attachment_cleanup_failed');
       }
       uploadedFiles = [];
       warnings.push('Attachments could not be linked to your enquiry. Your enquiry was saved. Please send files via WhatsApp or email.');
@@ -428,7 +434,7 @@ export default async function handler(req, res) {
       if (error || !data?.signedUrl) throw error || new Error('No link returned');
       return `<li><a href="${escapeHtml(data.signedUrl)}">${escapeHtml(file.name)}</a> (${escapeHtml((file.size / 1000).toFixed(1))} KB)</li>`;
     } catch {
-      console.warn('Attachment signing failed for enquiry', savedId);
+      logApiError('submit', 'attachment_signed_link_creation_failed');
       return `<li>${escapeHtml(file.name)} — saved privately; download link unavailable. View in Supabase Storage.</li>`;
     }
   }));
@@ -441,7 +447,7 @@ export default async function handler(req, res) {
   // 9. Send notification email via Resend (non-blocking failure if DB insert succeeded)
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey) {
-    console.warn('RESEND_API_KEY is not set; skipping email notification for enquiry', savedId);
+    logApiError('submit', 'email_notification_not_configured');
   } else {
     try {
       const resend = new Resend(resendApiKey);
@@ -506,10 +512,10 @@ Page/Slide Count: ${escapeHtml(length || '—')}</pre>
       }, { signal: AbortSignal.timeout(4_000) });
 
       if (emailError) {
-        console.warn('Resend email failed; enquiry still saved', savedId);
+        logApiError('submit', 'email_notification_failed');
       }
     } catch {
-      console.warn('Resend exception; enquiry still saved', savedId);
+      logApiError('submit', 'email_notification_failed');
     }
   }
 
@@ -518,4 +524,13 @@ Page/Slide Count: ${escapeHtml(length || '—')}</pre>
     id: savedId,
     warnings
   });
+}
+
+export default async function handler(req, res) {
+  try {
+    return await handleSubmit(req, res);
+  } catch (error) {
+    logApiError('submit', error);
+    return res.status(500).json({ error: 'Could not process your enquiry.' });
+  }
 }
