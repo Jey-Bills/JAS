@@ -25,6 +25,7 @@
     <span class="admin-badge">Admin</span>
   </div>
   <div class="admin-header-actions">
+    <a class="btn btn--outline admin-logout-btn" href="/jas-hub/enroll-mfa.html">Security</a>
     <a class="btn btn--outline admin-logout-btn" href="../index.html">Public Site</a>
     <button class="btn btn--gold admin-logout-btn" data-admin-logout="" id="admin-logout-btn" type="button">Logout</button>
   </div>
@@ -43,6 +44,10 @@
 
   <div hidden="" id="admin-dashboard-content">
     <section class="admin-hero admin-dashboard-hero">
+      <div class="container admin-mfa-warning" id="mfa-warning" hidden>
+        Two-factor authentication is not yet enabled. Add it for stronger protection.
+        <a class="btn btn--gold" href="/jas-hub/enroll-mfa.html">Enable now</a>
+      </div>
       <div class="container">
         <p class="eyebrow">Studio Administration</p>
         <h1 id="dashboard-heading">Enquiries</h1>

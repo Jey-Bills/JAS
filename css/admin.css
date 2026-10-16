@@ -704,3 +704,9 @@
 }
 
 .admin-checking-note { margin: 0; color: var(--slate); }
+
+/* TOTP setup presentation; QR content comes from the authenticated Supabase response. */
+.admin-mfa-qr { width: 240px; max-width: 100%; min-height: 100px; margin: 0 auto 16px; padding: 12px; background: #fff; display: flex; align-items: center; justify-content: center; }
+.admin-mfa-qr img, .admin-mfa-qr svg { width: 216px; max-width: 100%; height: auto; }
+.admin-mfa-secret { font-family: monospace; overflow-wrap: anywhere; }
+.admin-mfa-warning { margin-bottom: 18px; padding: 14px 18px; background: #fff5d6; color: #503d00; border-radius: 8px; }

@@ -282,10 +282,30 @@ export async function getSession() {
 /**
  * Ensure the visitor has an active owner session; otherwise redirect to /jas-hub/login.html.
  */
+export async function hasMfaEnrolled() {
+  try {
+    const supabase = await getSupabaseClient();
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) return false;
+    return Boolean(data?.totp?.some(factor => factor.status === 'verified'));
+  } catch {
+    return false;
+  }
+}
+
 export async function requireAuth() {
   const session = await getSession();
   if (!session) {
     redirectHandler(LOGIN_URL);
+    return null;
+  }
+  const supabase = await getSupabaseClient();
+  if (!supabase.auth.mfa?.getAuthenticatorAssuranceLevel) return session;
+  const [assurance, enrolled] = await Promise.all([
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(), hasMfaEnrolled()
+  ]);
+  if (enrolled && assurance.data?.currentLevel !== 'aal2') {
+    redirectHandler('/jas-hub/challenge.html');
     return null;
   }
   return session;
@@ -297,7 +317,15 @@ export async function requireAuth() {
 export async function requireGuest() {
   const session = await getSession();
   if (session) {
-    redirectHandler(DASHBOARD_URL);
+    let destination = DASHBOARD_URL;
+    try {
+      const supabase = await getSupabaseClient();
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (data?.currentLevel !== 'aal2' && data?.nextLevel === 'aal2') destination = '/jas-hub/challenge.html';
+    } catch {
+      // Keep the existing dashboard redirect if assurance inspection is unavailable.
+    }
+    redirectHandler(destination);
     return session;
   }
   return null;
@@ -512,11 +540,16 @@ export async function initLoginPage() {
       await checkServerRateLimit(emailVal);
       await signIn(emailVal, passwordVal);
       if (passwordInput) passwordInput.value = '';
+      const supabase = await getSupabaseClient();
+      const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const destination = assurance?.currentLevel === 'aal2'
+        ? DASHBOARD_URL
+        : assurance?.nextLevel === 'aal2' ? '/jas-hub/challenge.html' : DASHBOARD_URL;
       if (successText) {
-        successText.textContent = 'Signed in. Redirecting to dashboard…';
+        successText.textContent = 'Signed in. Redirecting…';
       }
       if (successPanel) successPanel.hidden = false;
-      redirectHandler(DASHBOARD_URL);
+      redirectHandler(destination);
     } catch (error) {
       if (passwordInput) passwordInput.value = '';
       if (error?.code === 'RATE_LIMITED' && Number(error.retryAfter) > 0) {
@@ -553,6 +586,8 @@ export async function initDashboardPage() {
   if (emailEl) {
     emailEl.textContent = session.user.email;
   }
+  const warning = document.getElementById('mfa-warning');
+  if (warning) warning.hidden = await hasMfaEnrolled();
   if (checkingEl) {
     checkingEl.hidden = true;
   }
@@ -593,7 +628,8 @@ if (typeof globalThis !== 'undefined') {
     getRateLimitState,
     recordFailedAttempt,
     clearFailedAttempts,
-    isOwnerEmail
+    isOwnerEmail,
+    hasMfaEnrolled
   };
 }
 
