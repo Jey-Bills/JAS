@@ -9,16 +9,16 @@
         { id: 'word-assignments', name: 'Word Assignments', description: 'Scope-based assignment guidance, review and formatting, with separate BSc and MSc/MPhil page bands.' },
         { id: 'powerpoint', name: 'PowerPoint Presentations', description: 'Presentation content guidance and slide design based on slide count and content readiness.' }
       ] },
-      { id: 'research-support', name: 'Research Support', description: 'Diagnostic review, technical help with data and analysis, and end-to-end milestone guidance.', subServices: [
+      { id: 'research-support', name: 'Research Guidance', description: 'Diagnostic review, technical help with data and analysis, and end-to-end milestone guidance.', subServices: [
         { id: 'diagnostic-review', name: 'Diagnostic Research Review', description: 'A written audit of research logic with prioritised feedback and a correction plan.' },
         { id: 'technical-support', name: 'Specialist Technical Support', description: 'Task-based data, analysis and research coaching.' },
         { id: 'end-to-end', name: 'End-to-End Research Guidance', description: 'Milestone-based guidance and feedback from proposal planning through final review.' }
       ] },
-      { id: 'bsn-case-studies', name: 'BSN Case Studies', description: 'Clinical case-study structure, nursing care plans, reasoning and presentation.', subServices: [
+      { id: 'bsn-case-studies', name: 'BSN & BSM Case Studies', description: 'Clinical case-study structure, nursing care plans, reasoning and presentation.', subServices: [
         { id: 'comprehensive', name: 'Comprehensive Case Study', description: 'Guidance on structure, clinical reasoning, care plans and references.' },
         { id: 'complex', name: 'Complex Case', description: 'Support for complex cases with extensive care plans, individually quoted after review.' }
       ] },
-      { id: 'editing-formatting', name: 'Editing & Formatting', description: 'Grammar, clarity, tone, structure and formatting — from light polish to substantial refinement.', subServices: [
+      { id: 'editing-formatting', name: 'Editing & Refinement', description: 'Grammar, clarity, tone, structure and formatting — from light polish to substantial refinement.', subServices: [
         { id: 'light', name: 'Light Editing', description: 'Grammar, spelling and clarity for structurally sound drafts.' },
         { id: 'moderate', name: 'Moderate Refinement', description: 'Flow, tone, repetition and consistency fixes.' },
         { id: 'substantial', name: 'Substantial Refinement', description: 'Restructuring, reorganisation and argument-flow improvements. Major research redesign excluded.' }
